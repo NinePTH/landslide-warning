@@ -1,0 +1,10 @@
+fastapi
+uvicorn[standard]
+sqlalchemy
+psycopg2-binary
+paho-mqtt
+scikit-learn
+joblib
+python-dotenv
+httpx
+pandas
