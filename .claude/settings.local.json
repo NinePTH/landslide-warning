@@ -5,7 +5,8 @@
       "Bash(find D:/landslide-warning/api -type f -name *.py -o -name *.txt -o -name *.pkl -o -name .env*)",
       "Bash(xargs cat:*)",
       "Bash(npx:*)",
-      "Bash(npm install:*)"
+      "Bash(npm install:*)",
+      "Bash(grep -r \"os\\\\.getenv\\\\|os\\\\.environ\" /d/landslide-warning --include=*.py)"
     ]
   }
 }
