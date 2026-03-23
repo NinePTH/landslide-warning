@@ -1,7 +1,11 @@
 {
   "permissions": {
     "allow": [
-      "Bash(docker compose:*)"
+      "Bash(docker compose:*)",
+      "Bash(find D:/landslide-warning/api -type f -name *.py -o -name *.txt -o -name *.pkl -o -name .env*)",
+      "Bash(xargs cat:*)",
+      "Bash(npx:*)",
+      "Bash(npm install:*)"
     ]
   }
 }

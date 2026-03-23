@@ -4,6 +4,9 @@
 # Arduino config (contains credentials)
 sensor/config.h
 
+# ML model (binary — retrain from source)
+api/model.pkl
+
 # Python
 __pycache__/
 *.pyc
@@ -14,6 +17,7 @@ venv/
 # Node
 node_modules/
 .next/
+dashboard/.env.local
 
 # OS
 .DS_Store
