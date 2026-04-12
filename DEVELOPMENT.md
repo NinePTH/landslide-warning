@@ -10,32 +10,41 @@ Complete these steps in order. Each section below explains them in more detail.
 
 ### One-time setup
 
+**Phase 1 — no Docker needed:**
+
 ```bash
-# 1. Copy environment config
+# 1. Copy environment configs
 cp .env.example .env
+cp dashboard/.env.example dashboard/.env.local
 
 # 2. Set up Python virtual environment and install dependencies
 cd api
 python -m venv .venv
 source .venv/Scripts/activate   # Windows (Git Bash)
-# source .venv/bin/activate    # Linux / macOS
+# source .venv/bin/activate     # Linux / macOS
 pip install -r requirements.txt
 cd ..
 
-# 3. Create dashboard environment file
-cp dashboard/.env.example dashboard/.env.local
-
-# 4. Install dashboard dependencies
+# 3. Install dashboard dependencies
 cd dashboard
 npm install
 cd ..
+```
 
-# 5. Train the ML model (requires Docker to be running first)
-#    Start Docker, then come back here:
+**Phase 2 — requires Docker (start Docker Desktop first):**
+
+```bash
+# 4. Start containers temporarily to initialise the database
+docker compose up -d
+
+# 5. Train the ML model
 cd api
 source .venv/Scripts/activate   # Windows (Git Bash)
 python train_model.py
 cd ..
+
+# 6. Stop containers — they will be restarted properly in Terminal 1
+docker compose down
 ```
 
 ### Running the project (4 terminals)
@@ -172,12 +181,14 @@ The default value (`NEXT_PUBLIC_API_URL=http://localhost:8000`) works for local 
 ### 4. Start Docker services
 
 ```bash
-docker compose up -d
+docker compose up
 ```
 
 This starts:
 - **TimescaleDB** on `localhost:5432`
 - **Mosquitto MQTT broker** on `localhost:1883`
+
+> Add `-d` (`docker compose up -d`) to run containers in the background without log output.
 
 ### 5. Verify services are running
 
@@ -208,15 +219,14 @@ mosquitto_pub -h localhost -t landslide/test -m "ping"
 
 The MQTT subscriber listens for sensor payloads and writes them to TimescaleDB. It also creates the `sensor_readings` table and hypertable on first run.
 
+> If you completed the Quick Start setup, the venv and dependencies already exist — skip the creation steps below and just activate then run.
+
 ```bash
 cd api
-python -m venv .venv
-
-# Activate virtual environment
-source .venv/Scripts/activate   # Windows (Git Bash)
-# source .venv/bin/activate     # Linux / macOS
-
-pip install -r requirements.txt
+python -m venv .venv              # skip if already created
+source .venv/Scripts/activate     # Windows (Git Bash)
+# source .venv/bin/activate       # Linux / macOS
+pip install -r requirements.txt   # skip if already installed
 python mqtt_subscriber.py
 ```
 
@@ -336,7 +346,8 @@ curl -X POST "http://localhost:8000/alert" \
 
 ```bash
 cd dashboard
-npm install          # first time only
+cp .env.example .env.local   # first time only — if not already created
+npm install                  # first time only
 npm run dev
 ```
 
@@ -458,6 +469,8 @@ python simulate.py
 | `FATAL: password authentication failed` on port 5432 | Another PostgreSQL instance is already running on port 5432 (e.g. a native install) | Change the port mapping in `docker-compose.yml` to `"5433:5432"` and update `DATABASE_URL` in `.env` to use port `5433` |
 | `connection refused` on port 1883 | Mosquitto container not running | `docker compose up -d` |
 | `DeprecationWarning: Callback API version 1 is deprecated` | paho-mqtt 2.x changed its client API | Harmless warning; the subscriber still works. Suppress with `mqtt.Client(mqtt.CallbackAPIVersion.VERSION2)` if needed |
+| `[WinError 10013] An attempt was made to access a socket in a way forbidden by its access permissions` on port 8000 | Port 8000 already in use by a previous uvicorn process | Find the PID: `powershell "Get-NetTCPConnection -LocalPort 8000 \| Select-Object -ExpandProperty OwningProcess"` then kill it: `powershell "Stop-Process -Id <PID> -Force"` |
+| `⨯ Another next dev server is already running` on port 3000 | Port 3000 already occupied by a previous `npm run dev` | Next.js prints the exact command to run — e.g. `taskkill /PID 22060 /F` — copy and run it, then retry `npm run dev` |
 | `FileNotFoundError: model.pkl not found` | Training script not run yet | `cd api && python train_model.py` |
 | `ModuleNotFoundError: No module named 'fastapi'` | Virtual environment not activated or deps not installed | `source .venv/bin/activate && pip install -r requirements.txt` |
 | `503 Telegram credentials not configured` | `TELEGRAM_BOT_TOKEN` or `TELEGRAM_CHAT_ID` missing in `.env` | Add the values to `.env`; leave blank to skip Telegram |
