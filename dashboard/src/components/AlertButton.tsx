@@ -14,9 +14,9 @@ export default function AlertButton() {
       await sendAlert()
       setStatus("success")
       setMessage("Alert sent via Telegram.")
-    } catch (err: any) {
+    } catch (err: unknown) {
       setStatus("error")
-      setMessage(err.message ?? "Failed to send alert.")
+      setMessage(err instanceof Error ? err.message : "Failed to send alert.")
     } finally {
       setTimeout(() => setStatus("idle"), 4000)
     }

@@ -13,6 +13,7 @@ Run:
 
 import os
 from datetime import datetime, timezone
+from pathlib import Path
 from typing import Optional
 
 import httpx
@@ -25,7 +26,7 @@ from sqlalchemy import select
 from database import engine, init_db, sensor_readings
 from predict import predict_risk
 
-load_dotenv()
+load_dotenv(Path(__file__).parent.parent / ".env")
 
 CORS_ORIGINS = [o.strip() for o in os.getenv("CORS_ORIGINS", "http://localhost:3000").split(",")]
 TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "")

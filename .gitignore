@@ -37,3 +37,6 @@ build/
 
 # Security
 *.pem
+
+# Claude Code local settings
+.claude/

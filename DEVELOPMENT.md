@@ -145,7 +145,7 @@ Example output:
 [Data] Insufficient labeled data (< 50 rows). Using synthetic data.
 [Data] Generated 900 synthetic rows.
 
-──────────────────────────────────────────────────
+--------------------------------------------------
 Training: KNN (k=5)
 Accuracy: 0.9222
               precision    recall  f1-score   support
@@ -153,28 +153,35 @@ Accuracy: 0.9222
          low       0.94      0.91      0.93        60
       medium       0.92      0.92      0.92        60
 
-──────────────────────────────────────────────────
+--------------------------------------------------
 Training: Random Forest (n=100)
 Accuracy: 0.9556
               precision    recall  f1-score   support
         ...
 
-══════════════════════════════════════════════════
+==================================================
   KNN (k=5): accuracy=0.9222
-  Random Forest (n=100): accuracy=0.9556 ← SELECTED
-══════════════════════════════════════════════════
+  Random Forest (n=100): accuracy=0.9556 <- SELECTED
+==================================================
 
 [Model] Saving 'Random Forest (n=100)' to .../api/model.pkl
 [Model] Saved successfully.
 ```
+
+> **Note:** On a fresh install with synthetic data, both models may score 1.0000 accuracy because the generated ranges are non-overlapping. This is expected — accuracy will drop to a more realistic level once real sensor data is used for training.
 
 The better-performing model is saved as `api/model.pkl`. Re-run this script any time you want to retrain (e.g., after accumulating real labeled data in the database).
 
 To test a prediction directly:
 
 ```bash
-python predict.py 85.0 72.0 15.0    # → Risk level: high
-python predict.py 40.0 20.0 1.0     # → Risk level: low
+python predict.py 85.0 72.0 15.0
+# Risk level: high
+#   humidity=85.0, soil_moisture=72.0, rainfall=15.0
+
+python predict.py 40.0 20.0 1.0
+# Risk level: low
+#   humidity=40.0, soil_moisture=20.0, rainfall=1.0
 ```
 
 ---
@@ -275,7 +282,8 @@ BROKER = "localhost"
 PORT   = 1883
 TOPIC  = "landslide/sensors"
 
-client = mqtt.Client()
+# paho-mqtt 2.x requires CallbackAPIVersion to avoid a DeprecationWarning
+client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2)
 client.connect(BROKER, PORT)
 client.loop_start()
 
@@ -312,7 +320,9 @@ python simulate.py
 | Error | Cause | Fix |
 |---|---|---|
 | `connection refused` on port 5432 | PostgreSQL container not running | `docker compose up -d` |
+| `FATAL: password authentication failed` on port 5432 | Another PostgreSQL instance is already running on port 5432 (e.g. a native install) | Change the port mapping in `docker-compose.yml` to `"5433:5432"` and update `DATABASE_URL` in `.env` to use port `5433` |
 | `connection refused` on port 1883 | Mosquitto container not running | `docker compose up -d` |
+| `DeprecationWarning: Callback API version 1 is deprecated` | paho-mqtt 2.x changed its client API | Harmless warning; the subscriber still works. Suppress with `mqtt.Client(mqtt.CallbackAPIVersion.VERSION2)` if needed |
 | `FileNotFoundError: model.pkl not found` | Training script not run yet | `cd api && python train_model.py` |
 | `ModuleNotFoundError: No module named 'fastapi'` | Virtual environment not activated or deps not installed | `source .venv/bin/activate && pip install -r requirements.txt` |
 | `503 Telegram credentials not configured` | `TELEGRAM_BOT_TOKEN` or `TELEGRAM_CHAT_ID` missing in `.env` | Add the values to `.env`; leave blank to skip Telegram |

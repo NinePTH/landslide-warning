@@ -24,14 +24,14 @@ from sqlalchemy import select
 
 from database import engine, sensor_readings
 
-load_dotenv()
+load_dotenv(Path(__file__).parent.parent / ".env")
 
 MODEL_PATH = Path(__file__).parent / "model.pkl"
 MIN_LABELED_ROWS = 50
 RANDOM_STATE = 42
 
 
-# ─── Data Loading ─────────────────────────────────────────
+# --- Data Loading -------------------------------------------------
 
 def load_from_db() -> pd.DataFrame:
     """Fetch labeled rows from sensor_readings."""
@@ -93,7 +93,7 @@ def get_training_data() -> pd.DataFrame:
     return df
 
 
-# ─── Training ─────────────────────────────────────────────
+# --- Training -----------------------------------------------------
 
 def train_and_evaluate(df: pd.DataFrame):
     X = df[["humidity", "soil_moisture", "rainfall"]].values
@@ -110,7 +110,7 @@ def train_and_evaluate(df: pd.DataFrame):
 
     results = {}
     for name, model in models.items():
-        print(f"\n{'─' * 50}")
+        print(f"\n{'-' * 50}")
         print(f"Training: {name}")
         model.fit(X_train, y_train)
         y_pred = model.predict(X_test)
@@ -125,18 +125,18 @@ def train_and_evaluate(df: pd.DataFrame):
 def select_and_save(results: dict):
     best_name, (best_acc, best_model) = max(results.items(), key=lambda x: x[1][0])
 
-    print(f"\n{'═' * 50}")
+    print(f"\n{'=' * 50}")
     for name, (acc, _) in results.items():
-        marker = " ← SELECTED" if name == best_name else ""
+        marker = " <- SELECTED" if name == best_name else ""
         print(f"  {name}: accuracy={acc:.4f}{marker}")
-    print(f"{'═' * 50}")
+    print(f"{'=' * 50}")
     print(f"\n[Model] Saving '{best_name}' to {MODEL_PATH}")
 
     joblib.dump(best_model, MODEL_PATH)
     print("[Model] Saved successfully.")
 
 
-# ─── Main ─────────────────────────────────────────────────
+# --- Main ---------------------------------------------------------
 
 if __name__ == "__main__":
     df = get_training_data()

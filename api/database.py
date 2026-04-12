@@ -1,9 +1,10 @@
 import os
+from pathlib import Path
 from dotenv import load_dotenv
 from sqlalchemy import create_engine, text, MetaData, Table, Column, Text, Float
 from sqlalchemy.dialects.postgresql import TIMESTAMP
 
-load_dotenv()
+load_dotenv(Path(__file__).parent.parent / ".env")
 
 DATABASE_URL = os.getenv("DATABASE_URL")
 

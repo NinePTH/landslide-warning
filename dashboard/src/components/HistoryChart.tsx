@@ -21,12 +21,25 @@ function formatTime(iso: string): string {
   return new Date(iso).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
 }
 
-const CustomTooltip = ({ active, payload, label }: any) => {
+interface TooltipEntry {
+  dataKey: string
+  name: string
+  value?: number | null
+  color: string
+}
+
+interface TooltipProps {
+  active?: boolean
+  payload?: TooltipEntry[]
+  label?: string
+}
+
+const CustomTooltip = ({ active, payload, label }: TooltipProps) => {
   if (!active || !payload?.length) return null
   return (
     <div className="bg-white border border-gray-200 rounded-lg shadow p-3 text-xs">
       <p className="font-semibold text-gray-600 mb-1">{label}</p>
-      {payload.map((p: any) => (
+      {payload.map((p) => (
         <p key={p.dataKey} style={{ color: p.color }}>
           {p.name}: {p.value?.toFixed(1)}
         </p>

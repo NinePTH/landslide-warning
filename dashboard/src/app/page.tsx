@@ -47,7 +47,8 @@ export default function DashboardPage() {
   }, [])
 
   useEffect(() => {
-    refresh()
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    void refresh()
     const id = setInterval(refresh, POLL_INTERVAL)
     return () => clearInterval(id)
   }, [refresh])

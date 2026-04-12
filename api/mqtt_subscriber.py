@@ -3,6 +3,7 @@ import os
 import signal
 import sys
 from datetime import datetime, timezone
+from pathlib import Path
 
 import paho.mqtt.client as mqtt
 from dotenv import load_dotenv
@@ -10,7 +11,7 @@ from sqlalchemy import insert
 
 from database import engine, init_db, sensor_readings
 
-load_dotenv()
+load_dotenv(Path(__file__).parent.parent / ".env")
 
 MQTT_BROKER = os.getenv("MQTT_BROKER", "localhost")
 MQTT_PORT   = int(os.getenv("MQTT_PORT", 1883))
