@@ -17,8 +17,8 @@ cp .env.example .env
 # 2. Set up Python virtual environment and install dependencies
 cd api
 python -m venv .venv
-.venv\Scripts\activate        # Windows
-# source .venv/bin/activate   # Linux / macOS
+source .venv/Scripts/activate   # Windows (Git Bash)
+# source .venv/bin/activate    # Linux / macOS
 pip install -r requirements.txt
 cd ..
 
@@ -33,7 +33,7 @@ cd ..
 # 5. Train the ML model (requires Docker to be running first)
 #    Start Docker, then come back here:
 cd api
-.venv\Scripts\activate
+source .venv/Scripts/activate   # Windows (Git Bash)
 python train_model.py
 cd ..
 ```
@@ -51,7 +51,7 @@ Wait until both `postgres` and `mosquitto` show `Started`.
 **Terminal 2 — MQTT Subscriber** (writes sensor data to DB)
 ```bash
 cd api
-.venv\Scripts\activate        # Windows
+source .venv/Scripts/activate   # Windows (Git Bash)
 python mqtt_subscriber.py
 ```
 Wait for: `[MQTT] Subscribed to topic: landslide/sensors`
@@ -59,7 +59,7 @@ Wait for: `[MQTT] Subscribed to topic: landslide/sensors`
 **Terminal 3 — FastAPI backend**
 ```bash
 cd api
-.venv\Scripts\activate        # Windows
+source .venv/Scripts/activate   # Windows (Git Bash)
 uvicorn main:app --reload --host 0.0.0.0 --port 8000
 ```
 Wait for: `Application startup complete.`
@@ -80,7 +80,7 @@ With all 4 services running, publish some readings using Python (no extra tools 
 
 ```bash
 cd api
-.venv\Scripts\activate        # Windows
+source .venv/Scripts/activate   # Windows (Git Bash)
 python -c "
 import paho.mqtt.client as mqtt, json, time
 client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2)
@@ -213,8 +213,8 @@ cd api
 python -m venv .venv
 
 # Activate virtual environment
-source .venv/bin/activate         # Linux / macOS
-.venv\Scripts\activate            # Windows
+source .venv/Scripts/activate   # Windows (Git Bash)
+# source .venv/bin/activate     # Linux / macOS
 
 pip install -r requirements.txt
 python mqtt_subscriber.py
@@ -384,7 +384,8 @@ mosquitto_pub -h localhost -t landslide/sensors -m \
 
 ```bash
 cd api
-.venv\Scripts\activate   # Windows — or: source .venv/bin/activate on Linux/macOS
+source .venv/Scripts/activate   # Windows (Git Bash)
+# source .venv/bin/activate     # Linux / macOS
 python -c "
 import paho.mqtt.client as mqtt, json, time
 client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2)
