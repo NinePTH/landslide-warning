@@ -4,6 +4,110 @@ This guide covers everything needed to run the Landslide Warning System locally 
 
 ---
 
+## Quick Start
+
+Complete these steps in order. Each section below explains them in more detail.
+
+### One-time setup
+
+```bash
+# 1. Copy environment config
+cp .env.example .env
+
+# 2. Set up Python virtual environment and install dependencies
+cd api
+python -m venv .venv
+.venv\Scripts\activate        # Windows
+# source .venv/bin/activate   # Linux / macOS
+pip install -r requirements.txt
+cd ..
+
+# 3. Create dashboard environment file
+cp dashboard/.env.example dashboard/.env.local
+
+# 4. Install dashboard dependencies
+cd dashboard
+npm install
+cd ..
+
+# 5. Train the ML model (requires Docker to be running first)
+#    Start Docker, then come back here:
+cd api
+.venv\Scripts\activate
+python train_model.py
+cd ..
+```
+
+### Running the project (4 terminals)
+
+Start each in a separate terminal window from the project root:
+
+**Terminal 1 — Infrastructure**
+```bash
+docker compose up
+```
+Wait until both `postgres` and `mosquitto` show `Started`.
+
+**Terminal 2 — MQTT Subscriber** (writes sensor data to DB)
+```bash
+cd api
+.venv\Scripts\activate        # Windows
+python mqtt_subscriber.py
+```
+Wait for: `[MQTT] Subscribed to topic: landslide/sensors`
+
+**Terminal 3 — FastAPI backend**
+```bash
+cd api
+.venv\Scripts\activate        # Windows
+uvicorn main:app --reload --host 0.0.0.0 --port 8000
+```
+Wait for: `Application startup complete.`
+
+**Terminal 4 — Next.js dashboard**
+```bash
+cd dashboard
+npm run dev
+```
+Wait for: `Ready in ...ms`
+
+Open **http://localhost:3000** to see the dashboard.
+Open **http://localhost:8000/docs** for the interactive API docs.
+
+### Inject test data (no NodeMCU needed)
+
+With all 4 services running, publish some readings using Python (no extra tools needed):
+
+```bash
+cd api
+.venv\Scripts\activate        # Windows
+python -c "
+import paho.mqtt.client as mqtt, json, time
+client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2)
+client.connect('localhost', 1883)
+client.loop_start()
+msgs = [
+    {'station_id':'station_01','timestamp':'2026-04-12T10:00:00Z','humidity':85.0,'soil_moisture':72.0,'rainfall':15.0},
+    {'station_id':'station_01','timestamp':'2026-04-12T10:00:30Z','humidity':40.0,'soil_moisture':20.0,'rainfall':1.0},
+    {'station_id':'station_01','timestamp':'2026-04-12T10:01:00Z','humidity':68.0,'soil_moisture':50.0,'rainfall':10.0},
+]
+for m in msgs: client.publish('landslide/sensors', json.dumps(m)); print('Published:', m['humidity'])
+time.sleep(1); client.disconnect()
+"
+```
+
+The dashboard refreshes every 30 seconds automatically, or reload the page to see data immediately.
+
+### Stopping everything
+
+`Ctrl+C` in each terminal, then stop the containers:
+
+```bash
+docker compose down
+```
+
+---
+
 ## Prerequisites
 
 | Tool | Minimum Version | Purpose |
@@ -57,7 +161,15 @@ API_URL=http://localhost:8000
 CORS_ORIGINS=http://localhost:3000
 ```
 
-### 3. Start Docker services
+### 3. Create dashboard environment file
+
+```bash
+cp dashboard/.env.example dashboard/.env.local
+```
+
+The default value (`NEXT_PUBLIC_API_URL=http://localhost:8000`) works for local development as-is.
+
+### 4. Start Docker services
 
 ```bash
 docker compose up -d
@@ -67,7 +179,7 @@ This starts:
 - **TimescaleDB** on `localhost:5432`
 - **Mosquitto MQTT broker** on `localhost:1883`
 
-### 4. Verify services are running
+### 5. Verify services are running
 
 ```bash
 docker compose ps
@@ -252,6 +364,8 @@ Use these commands to inject test data without a NodeMCU. Ensure the MQTT subscr
 
 ### Single publish (one-shot)
 
+**Option A — using mosquitto_pub** (requires mosquitto-clients installed):
+
 ```bash
 # Low risk scenario
 mosquitto_pub -h localhost -t landslide/sensors -m \
@@ -264,6 +378,26 @@ mosquitto_pub -h localhost -t landslide/sensors -m \
 # High risk scenario
 mosquitto_pub -h localhost -t landslide/sensors -m \
   '{"station_id":"station_01","timestamp":"2026-03-23T10:00:00Z","humidity":90.0,"soil_moisture":80.0,"rainfall":30.0}'
+```
+
+**Option B — using Python** (no extra tools needed, works on Windows):
+
+```bash
+cd api
+.venv\Scripts\activate   # Windows — or: source .venv/bin/activate on Linux/macOS
+python -c "
+import paho.mqtt.client as mqtt, json, time
+client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2)
+client.connect('localhost', 1883)
+client.loop_start()
+msgs = [
+    {'station_id':'station_01','timestamp':'2026-03-23T10:00:00Z','humidity':40.0,'soil_moisture':20.0,'rainfall':1.0},
+    {'station_id':'station_01','timestamp':'2026-03-23T10:00:30Z','humidity':68.0,'soil_moisture':50.0,'rainfall':10.0},
+    {'station_id':'station_01','timestamp':'2026-03-23T10:01:00Z','humidity':90.0,'soil_moisture':80.0,'rainfall':30.0},
+]
+for m in msgs: client.publish('landslide/sensors', json.dumps(m)); print('Published:', m['humidity'])
+time.sleep(1); client.disconnect()
+"
 ```
 
 ### Continuous simulation (Python script)
