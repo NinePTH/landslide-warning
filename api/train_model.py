@@ -26,7 +26,7 @@ from database import engine, sensor_readings
 
 load_dotenv(Path(__file__).parent.parent / ".env")
 
-MODEL_PATH = Path(__file__).parent / "model.pkl"
+MODEL_PATH = Path(__file__).parent / "ml" / "model.pkl"
 MIN_LABELED_ROWS = 50
 RANDOM_STATE = 42
 

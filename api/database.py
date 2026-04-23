@@ -23,6 +23,14 @@ sensor_readings = Table(
 )
 
 
+def row_to_dict(row) -> dict:
+    from datetime import datetime
+    d = dict(row._mapping)
+    if isinstance(d.get("time"), datetime):
+        d["time"] = d["time"].isoformat()
+    return d
+
+
 def init_db():
     with engine.connect() as conn:
         # Enable TimescaleDB extension

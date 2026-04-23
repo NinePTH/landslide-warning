@@ -121,7 +121,7 @@ python train_model.py
 Verify the prediction works:
 
 ```bash
-python predict.py 85.0 72.0 15.0
+python ml/predict.py 85.0 72.0 15.0
 # Risk level: high
 #   humidity=85.0, soil_moisture=72.0, rainfall=15.0
 ```

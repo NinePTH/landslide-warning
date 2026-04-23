@@ -2,12 +2,12 @@
 Prediction utility — loads model.pkl and classifies sensor readings.
 
 As a module:
-    from predict import predict_risk
+    from ml.predict import predict_risk
     risk = predict_risk(humidity=85.0, soil_moisture=72.0, rainfall=15.0)
 
-From the command line:
-    python predict.py <humidity> <soil_moisture> <rainfall>
-    python predict.py 85.0 72.0 15.0
+From the command line (run from api/):
+    python ml/predict.py <humidity> <soil_moisture> <rainfall>
+    python ml/predict.py 85.0 72.0 15.0
 """
 
 import sys
@@ -41,8 +41,8 @@ def predict_risk(humidity: float, soil_moisture: float, rainfall: float) -> str:
 
 if __name__ == "__main__":
     if len(sys.argv) != 4:
-        print("Usage: python predict.py <humidity> <soil_moisture> <rainfall>")
-        print("Example: python predict.py 85.0 72.0 15.0")
+        print("Usage: python ml/predict.py <humidity> <soil_moisture> <rainfall>")
+        print("Example: python ml/predict.py 85.0 72.0 15.0")
         sys.exit(1)
 
     try:

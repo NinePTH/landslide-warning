@@ -297,11 +297,11 @@ The better-performing model is saved as `api/model.pkl`. Re-run this script any 
 To test a prediction directly:
 
 ```bash
-python predict.py 85.0 72.0 15.0
+python ml/predict.py 85.0 72.0 15.0
 # Risk level: high
 #   humidity=85.0, soil_moisture=72.0, rainfall=15.0
 
-python predict.py 40.0 20.0 1.0
+python ml/predict.py 40.0 20.0 1.0
 # Risk level: low
 #   humidity=40.0, soil_moisture=20.0, rainfall=1.0
 ```
