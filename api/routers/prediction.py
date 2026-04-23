@@ -1,3 +1,4 @@
+import os
 from typing import Optional
 
 from fastapi import APIRouter, HTTPException, Query
@@ -7,6 +8,14 @@ from database import engine, sensor_readings, row_to_dict
 from ml.predict import predict_risk
 
 router = APIRouter()
+
+
+def get_station_config(station_id: str) -> dict:
+    prefix = station_id.upper().replace("-", "_")
+    return {
+        "slope_angle":        float(os.getenv(f"{prefix}_SLOPE_ANGLE", "30.0")),
+        "proximity_to_water": float(os.getenv(f"{prefix}_PROXIMITY_TO_WATER", "1.0")),
+    }
 
 
 def get_latest_prediction(station_id: Optional[str] = None) -> dict:
@@ -27,14 +36,23 @@ def get_latest_prediction(station_id: Optional[str] = None) -> dict:
 
     data = row_to_dict(row)
 
-    humidity      = data.get("humidity")
-    soil_moisture = data.get("soil_moisture")
     rainfall      = data.get("rainfall")
+    soil_moisture = data.get("soil_moisture")
+    humidity      = data.get("humidity")
 
-    if any(v is None for v in [humidity, soil_moisture, rainfall]):
+    if any(v is None for v in [rainfall, soil_moisture]):
         raise HTTPException(status_code=422, detail="Latest reading has missing sensor values.")
 
-    data["risk_level"] = predict_risk(humidity, soil_moisture, rainfall)
+    sid = data.get("station_id", "station_01")
+    config = get_station_config(sid)
+
+    data["slope_angle"]        = config["slope_angle"]
+    data["proximity_to_water"] = config["proximity_to_water"]
+    data["risk_level"]         = predict_risk(
+        rainfall, soil_moisture,
+        config["slope_angle"], config["proximity_to_water"],
+        humidity,
+    )
     return data
 
 

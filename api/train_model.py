@@ -1,15 +1,17 @@
 """
-Train KNN and Random Forest models on sensor_readings data.
-Saves the better-performing model as model.pkl.
+Train KNN and Random Forest models on landslide sensor data.
+Saves the better-performing model as ml/model.pkl.
+
+Data priority:
+  1. api/ml/landslide_dataset.csv  (real labeled data)
+  2. sensor_readings table in DB   (if >= 50 labeled rows)
+  3. Synthetic data                (fallback)
 
 Usage:
     python train_model.py
-
-If fewer than 50 labeled rows exist in the DB, synthetic data is used for training.
 """
 
 import os
-import sys
 from pathlib import Path
 
 import joblib
@@ -26,47 +28,64 @@ from database import engine, sensor_readings
 
 load_dotenv(Path(__file__).parent.parent / ".env")
 
+CSV_PATH   = Path(__file__).parent / "ml" / "landslide_dataset.csv"
 MODEL_PATH = Path(__file__).parent / "ml" / "model.pkl"
+
+FEATURES         = ["rainfall", "soil_moisture", "slope_angle", "proximity_to_water"]
 MIN_LABELED_ROWS = 50
-RANDOM_STATE = 42
+RANDOM_STATE     = 42
 
 
 # --- Data Loading -------------------------------------------------
 
+def load_from_csv() -> pd.DataFrame:
+    df = pd.read_csv(CSV_PATH)
+    df = df.rename(columns={
+        "Rainfall_mm":        "rainfall",
+        "Soil_Saturation":    "soil_moisture",
+        "Slope_Angle":        "slope_angle",
+        "Proximity_to_Water": "proximity_to_water",
+        "Landslide":          "risk_level",
+    })
+    return df[FEATURES + ["risk_level"]].dropna()
+
+
 def load_from_db() -> pd.DataFrame:
-    """Fetch labeled rows from sensor_readings."""
     query = (
         select(
-            sensor_readings.c.humidity,
-            sensor_readings.c.soil_moisture,
             sensor_readings.c.rainfall,
+            sensor_readings.c.soil_moisture,
             sensor_readings.c.risk_level,
         )
         .where(sensor_readings.c.risk_level.isnot(None))
     )
     with engine.connect() as conn:
-        result = conn.execute(query)
-        rows = result.fetchall()
+        rows = conn.execute(query).fetchall()
 
-    df = pd.DataFrame(rows, columns=["humidity", "soil_moisture", "rainfall", "risk_level"])
-    return df.dropna()
+    df = pd.DataFrame(rows, columns=["rainfall", "soil_moisture", "risk_level"])
+    # DB data has no slope_angle / proximity_to_water — fill with neutral defaults
+    df["slope_angle"]         = 30.0
+    df["proximity_to_water"]  = 1.0
+    return df[FEATURES + ["risk_level"]].dropna()
 
 
 def generate_synthetic_data(n_per_class: int = 300) -> pd.DataFrame:
-    """Generate synthetic labeled data using domain knowledge."""
     rng = np.random.default_rng(RANDOM_STATE)
 
     def sample(ranges, n):
-        return {
-            k: rng.uniform(lo, hi, n) for k, (lo, hi) in ranges.items()
-        }
+        return {k: rng.uniform(lo, hi, n) for k, (lo, hi) in ranges.items()}
 
-    low = sample({"humidity": (30, 60), "soil_moisture": (10, 40), "rainfall": (0, 5)}, n_per_class)
-    med = sample({"humidity": (55, 80), "soil_moisture": (35, 65), "rainfall": (5, 20)}, n_per_class)
-    high = sample({"humidity": (75, 100), "soil_moisture": (60, 100), "rainfall": (15, 50)}, n_per_class)
+    no_slide = sample({
+        "rainfall": (0, 100), "soil_moisture": (0, 0.4),
+        "slope_angle": (0, 25), "proximity_to_water": (1, 3),
+    }, n_per_class)
+    slide = sample({
+        "rainfall": (120, 300), "soil_moisture": (0.5, 1.0),
+        "slope_angle": (30, 70), "proximity_to_water": (0, 0.8),
+    }, n_per_class)
 
     frames = []
-    for data, label in [(low, "low"), (med, "medium"), (high, "high")]:
+    for data, label in [(no_slide, 0), (slide, 1)]:
         df = pd.DataFrame(data)
         df["risk_level"] = label
         frames.append(df)
@@ -75,7 +94,12 @@ def generate_synthetic_data(n_per_class: int = 300) -> pd.DataFrame:
 
 
 def get_training_data() -> pd.DataFrame:
-    print("[Data] Fetching labeled rows from database...")
+    if CSV_PATH.exists():
+        df = load_from_csv()
+        print(f"[Data] Loaded {len(df)} rows from CSV.")
+        return df
+
+    print("[Data] CSV not found. Fetching labeled rows from database...")
     try:
         df = load_from_db()
         print(f"[Data] Found {len(df)} labeled rows.")
@@ -88,7 +112,7 @@ def get_training_data() -> pd.DataFrame:
         df = generate_synthetic_data()
         print(f"[Data] Generated {len(df)} synthetic rows.")
     else:
-        print("[Data] Using real database data for training.")
+        print("[Data] Using database data for training.")
 
     return df
 
@@ -96,7 +120,7 @@ def get_training_data() -> pd.DataFrame:
 # --- Training -----------------------------------------------------
 
 def train_and_evaluate(df: pd.DataFrame):
-    X = df[["humidity", "soil_moisture", "rainfall"]].values
+    X = df[FEATURES].values
     y = df["risk_level"].values
 
     X_train, X_test, y_train, y_test = train_test_split(
@@ -116,7 +140,7 @@ def train_and_evaluate(df: pd.DataFrame):
         y_pred = model.predict(X_test)
         acc = accuracy_score(y_test, y_pred)
         print(f"Accuracy: {acc:.4f}")
-        print(classification_report(y_test, y_pred, target_names=["high", "low", "medium"]))
+        print(classification_report(y_test, y_pred))
         results[name] = (acc, model)
 
     return results

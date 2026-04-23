@@ -251,6 +251,33 @@ Stop with `Ctrl+C` — the subscriber shuts down gracefully.
 
 ## Training the ML Model
 
+### Features and labels
+
+| Role | Column (CSV) | Internal name | Source at prediction time |
+|---|---|---|---|
+| Feature | `Rainfall_mm` | `rainfall` | Sensor (rain gauge) |
+| Feature | `Soil_Saturation` | `soil_moisture` | Sensor (capacitive) |
+| Feature | `Slope_Angle` | `slope_angle` | Fixed in `.env` per station |
+| Feature | `Proximity_to_Water` | `proximity_to_water` | Fixed in `.env` per station |
+| Label | `Landslide` | `risk_level` | 0 = no landslide, 1 = landslide |
+
+Columns **not** used: `Vegetation_Cover`, `Earthquake_Activity`, `Soil_Type_*`.
+
+**Humidity (DHT22)** is not an ML feature — it is applied as a rule-based layer after the model
+predicts 0/1, mapping the combined result to `low / medium / high`:
+
+| ML result | humidity | Final risk level |
+|---|---|---|
+| 0 | < 80 % | `low` |
+| 0 | ≥ 80 % | `medium` |
+| 1 | < 80 % | `medium` |
+| 1 | ≥ 80 % | `high` |
+
+Data priority when running `train_model.py`:
+1. `api/ml/landslide_dataset.csv` — real labeled CSV (used if file exists)
+2. `sensor_readings` table in DB — if ≥ 50 labeled rows
+3. Synthetic data — fallback
+
 The training script fetches labeled rows from the database. If fewer than 50 labeled rows exist (the case on a fresh installation), it generates synthetic training data using domain rules.
 
 ```bash
@@ -262,49 +289,45 @@ python train_model.py
 Example output:
 
 ```
-[Data] Fetching labeled rows from database...
-[Data] Found 0 labeled rows.
-[Data] Insufficient labeled data (< 50 rows). Using synthetic data.
-[Data] Generated 900 synthetic rows.
+[Data] Loaded 2000 rows from CSV.
 
 --------------------------------------------------
 Training: KNN (k=5)
-Accuracy: 0.9222
-              precision    recall  f1-score   support
-        high       0.91      0.94      0.93        60
-         low       0.94      0.91      0.93        60
-      medium       0.92      0.92      0.92        60
+Accuracy: 0.9825
+...
 
 --------------------------------------------------
 Training: Random Forest (n=100)
-Accuracy: 0.9556
-              precision    recall  f1-score   support
-        ...
+Accuracy: 1.0000
+...
 
 ==================================================
-  KNN (k=5): accuracy=0.9222
-  Random Forest (n=100): accuracy=0.9556 <- SELECTED
+  KNN (k=5): accuracy=0.9825
+  Random Forest (n=100): accuracy=1.0000 <- SELECTED
 ==================================================
 
-[Model] Saving 'Random Forest (n=100)' to .../api/model.pkl
+[Model] Saving 'Random Forest (n=100)' to .../api/ml/model.pkl
 [Model] Saved successfully.
 ```
-
-> **Note:** On a fresh install with synthetic data, both models may score 1.0000 accuracy because the generated ranges are non-overlapping. This is expected — accuracy will drop to a more realistic level once real sensor data is used for training.
 
 The better-performing model is saved as `api/model.pkl`. Re-run this script any time you want to retrain (e.g., after accumulating real labeled data in the database).
 
 To test a prediction directly:
 
 ```bash
-python ml/predict.py 85.0 72.0 15.0
+# Args: <rainfall> <soil_moisture> <slope_angle> <proximity_to_water> <humidity>
+python ml/predict.py 150.0 0.7 35.0 0.5 85.0
 # Risk level: high
-#   humidity=85.0, soil_moisture=72.0, rainfall=15.0
+#   rainfall=150.0, soil_moisture=0.7, slope_angle=35.0, proximity_to_water=0.5, humidity=85.0
 
-python ml/predict.py 40.0 20.0 1.0
+python ml/predict.py 50.0 0.2 10.0 2.0 40.0
 # Risk level: low
-#   humidity=40.0, soil_moisture=20.0, rainfall=1.0
+#   rainfall=50.0, soil_moisture=0.2, slope_angle=10.0, proximity_to_water=2.0, humidity=40.0
 ```
+
+> **Station config** — `slope_angle` and `proximity_to_water` are fixed geographic properties
+> stored in `.env` (e.g. `STATION_01_SLOPE_ANGLE=35.0`). The API looks them up automatically
+> by station ID when calling `/predict`.
 
 ---
 
