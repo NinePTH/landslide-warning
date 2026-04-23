@@ -5,7 +5,7 @@
 sensor/config.h
 
 # ML model (binary — retrain from source)
-api/model.pkl
+api/ml/model.pkl
 
 # Python
 __pycache__/
