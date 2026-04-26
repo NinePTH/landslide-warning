@@ -99,6 +99,13 @@ TELEGRAM_CHAT_ID=          # fill in after step 9
 
 API_URL=                   # fill in after step 5 (Cloudflare Tunnel URL)
 CORS_ORIGINS=http://localhost:3000   # update after step 6 (add Vercel domain)
+
+# Station config (fixed geographic properties per station)
+# Format: <STATION_ID_UPPERCASE>_SLOPE_ANGLE / <STATION_ID_UPPERCASE>_PROXIMITY_TO_WATER
+# Add one pair per deployed station. Without these, predictions fall back to defaults
+# (slope_angle=30.0, proximity_to_water=1.0), which won't reflect real station geography.
+STATION_01_SLOPE_ANGLE=35.0
+STATION_01_PROXIMITY_TO_WATER=0.5
 ```
 
 ---
@@ -112,18 +119,20 @@ source .venv/bin/activate
 pip install -r requirements.txt
 ```
 
-Train the ML model (this generates `api/model.pkl`):
+Train the ML model (this generates `api/ml/model.pkl`):
 
 ```bash
 python train_model.py
+# Data source priority: api/ml/landslide_dataset.csv > DB labeled rows (>= 50) > synthetic.
+# The CSV is committed in the repo, so a fresh clone trains on it by default.
 ```
 
 Verify the prediction works:
 
 ```bash
-python ml/predict.py 85.0 72.0 15.0
+python ml/predict.py 150.0 0.7 35.0 0.5 85.0
 # Risk level: high
-#   humidity=85.0, soil_moisture=72.0, rainfall=15.0
+#   rainfall=150.0, soil_moisture=0.7, slope_angle=35.0, proximity_to_water=0.5, humidity=85.0
 ```
 
 ---
