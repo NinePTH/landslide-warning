@@ -2,6 +2,8 @@
 
 This guide covers everything needed to run the Landslide Warning System locally without physical hardware.
 
+> For a project overview see [README.md](README.md). To deploy on a Raspberry Pi instead, see [DEPLOYMENT.md](DEPLOYMENT.md).
+
 ---
 
 ## Quick Start
@@ -310,7 +312,7 @@ Accuracy: 1.0000
 [Model] Saved successfully.
 ```
 
-The better-performing model is saved as `api/model.pkl`. Re-run this script any time you want to retrain (e.g., after accumulating real labeled data in the database).
+The better-performing model is saved as `api/ml/model.pkl`. Re-run this script any time you want to retrain (e.g., after accumulating real labeled data in the database).
 
 To test a prediction directly:
 

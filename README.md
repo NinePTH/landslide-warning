@@ -79,6 +79,13 @@ Wiring (default pins, configurable in `sensor/config.h`):
 
 ---
 
+## Where to Go Next
+
+- **Local development with Docker** → see [DEVELOPMENT.md](DEVELOPMENT.md).
+- **Production deployment on a Raspberry Pi** → see [DEPLOYMENT.md](DEPLOYMENT.md).
+
+---
+
 ## Folder Structure
 
 ```

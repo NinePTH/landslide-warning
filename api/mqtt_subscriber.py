@@ -50,8 +50,8 @@ def on_message(client, userdata, msg):
             "rainfall":      payload.get("rainfall"),
             "risk_level":    None,  # filled later by ML model
         }
-    except KeyError as e:
-        print(f"[MQTT] Missing required field {e} in payload: {payload}")
+    except (KeyError, ValueError) as e:
+        print(f"[MQTT] Bad payload ({type(e).__name__}: {e}): {payload}")
         return
 
     with engine.connect() as conn:

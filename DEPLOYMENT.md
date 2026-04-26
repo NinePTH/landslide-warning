@@ -2,6 +2,8 @@
 
 This guide covers deploying the Landslide Warning System to real hardware: a Raspberry Pi as the edge server, a NodeMCU with sensors in the field, the Next.js dashboard on Vercel, and a Cloudflare Tunnel to expose the API to the internet.
 
+> For a project overview see [README.md](README.md). For local Docker-based development without hardware see [DEVELOPMENT.md](DEVELOPMENT.md).
+
 **Recommended order:**
 1. Set up Raspberry Pi (OS, DB, Mosquitto)
 2. Clone repo and configure `.env`

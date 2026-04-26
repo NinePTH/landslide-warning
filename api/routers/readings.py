@@ -30,9 +30,10 @@ def get_history(
     from_: Optional[str] = Query(None, alias="from", description="Start datetime (ISO 8601)"),
     to: Optional[str] = Query(None, description="End datetime (ISO 8601)"),
     station_id: Optional[str] = Query(None, description="Filter by station ID"),
+    limit: int = Query(10000, ge=1, le=100000, description="Max rows to return"),
 ):
     """Return sensor readings within a time range, oldest first."""
-    query = select(sensor_readings).order_by(sensor_readings.c.time.asc())
+    query = select(sensor_readings).order_by(sensor_readings.c.time.asc()).limit(limit)
 
     if from_:
         try:

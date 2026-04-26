@@ -5,10 +5,14 @@ export interface SensorReading {
   soil_moisture: number | null
   rainfall: number | null
   risk_level: string | null
+  slope_angle?: number
+  proximity_to_water?: number
 }
 
 export interface PredictResponse extends SensorReading {
   risk_level: string
+  slope_angle: number
+  proximity_to_water: number
 }
 
 export type RiskLevel = "low" | "medium" | "high"
