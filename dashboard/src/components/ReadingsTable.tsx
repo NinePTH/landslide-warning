@@ -1,67 +1,127 @@
 "use client"
 
-import { RISK_COLORS, RiskLevel, SensorReading } from "@/types"
+import { RISK_TONES, RiskLevel, SensorReading } from "@/types"
 
 interface Props {
   readings: SensorReading[]
   loading: boolean
 }
 
-const riskBadge = (level: string | null) => {
-  if (!level) return <span className="text-gray-400 text-xs">—</span>
-  const colors = RISK_COLORS[level as RiskLevel]
-  if (!colors) return <span>{level}</span>
+const riskTag = (level: string | null) => {
+  if (!level) return <span className="font-mono text-[10px] text-[var(--ink-500)]">—</span>
+  const tone = RISK_TONES[level as RiskLevel]
+  if (!tone) {
+    return (
+      <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-[var(--ink-300)]">
+        {level}
+      </span>
+    )
+  }
   return (
-    <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-semibold text-white ${colors.bg}`}>
-      {colors.label}
+    <span
+      className="inline-flex items-center gap-1.5 font-mono text-[10px] tracking-[0.18em] uppercase"
+      style={{ color: tone.ink }}
+    >
+      <span
+        className="block w-1.5 h-1.5"
+        style={{ background: tone.accent, boxShadow: `0 0 6px ${tone.accent}` }}
+      />
+      {tone.label}
     </span>
   )
 }
 
+const formatTime = (iso: string) =>
+  new Date(iso).toLocaleString("en-GB", {
+    day: "2-digit",
+    month: "short",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+  })
+
 export default function ReadingsTable({ readings, loading }: Props) {
   return (
-    <div className="bg-white rounded-xl shadow-sm border border-gray-100">
-      <div className="px-5 py-4 border-b border-gray-100">
-        <h2 className="font-semibold text-gray-800">Latest Sensor Readings</h2>
-      </div>
+    <section className="border hairline">
+      <header
+        className="px-5 py-3 border-b hairline flex items-center justify-between"
+      >
+        <div className="flex items-baseline gap-3">
+          <span className="sigil">§ 04 · Ledger</span>
+          <h2 className="font-display text-[20px] text-[var(--ink-100)] leading-none">
+            Latest readings
+          </h2>
+        </div>
+        <span className="font-mono text-[10px] tracking-[0.18em] uppercase text-[var(--ink-400)]">
+          {readings.length > 0 ? `${readings.length} entries` : "—"}
+        </span>
+      </header>
+
       <div className="overflow-x-auto">
         {loading ? (
-          <div className="flex items-center justify-center h-32 text-sm text-gray-400">
-            Loading readings...
-          </div>
+          <div className="h-[180px] skeleton m-4" />
         ) : readings.length === 0 ? (
-          <div className="flex items-center justify-center h-32 text-sm text-gray-400">
-            No readings available
+          <div className="h-[160px] flex flex-col items-center justify-center gap-1">
+            <span className="sigil">§ No entries</span>
+            <p className="text-sm text-[var(--ink-400)]">Readings will appear here once sensors report in.</p>
           </div>
         ) : (
-          <table className="w-full text-sm">
+          <table className="w-full">
             <thead>
-              <tr className="text-left text-gray-500 text-xs uppercase tracking-wider">
-                <th className="px-5 py-3 font-medium">Time</th>
-                <th className="px-5 py-3 font-medium">Station</th>
-                <th className="px-5 py-3 font-medium">Humidity (%)</th>
-                <th className="px-5 py-3 font-medium">Soil Moisture (%)</th>
-                <th className="px-5 py-3 font-medium">Rainfall (mm)</th>
-                <th className="px-5 py-3 font-medium">Risk</th>
+              <tr className="border-b hairline">
+                <Th>Timestamp</Th>
+                <Th>Station</Th>
+                <Th align="right">Humidity</Th>
+                <Th align="right">Soil M.</Th>
+                <Th align="right">Rainfall</Th>
+                <Th>Risk</Th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-50">
+            <tbody>
               {readings.map((r, i) => (
-                <tr key={i} className="hover:bg-gray-50 transition-colors">
-                  <td className="px-5 py-3 text-gray-500 whitespace-nowrap">
-                    {new Date(r.time).toLocaleString()}
+                <tr
+                  key={`${r.station_id}-${r.time}-${i}`}
+                  className="row-hover border-b hairline last:border-b-0"
+                >
+                  <td className="px-5 py-3 font-mono text-[12px] text-[var(--ink-200)] whitespace-nowrap">
+                    {formatTime(r.time)}
                   </td>
-                  <td className="px-5 py-3 font-medium text-gray-800">{r.station_id}</td>
-                  <td className="px-5 py-3 text-gray-600">{r.humidity?.toFixed(1) ?? "—"}</td>
-                  <td className="px-5 py-3 text-gray-600">{r.soil_moisture?.toFixed(1) ?? "—"}</td>
-                  <td className="px-5 py-3 text-gray-600">{r.rainfall?.toFixed(1) ?? "—"}</td>
-                  <td className="px-5 py-3">{riskBadge(r.risk_level)}</td>
+                  <td className="px-5 py-3 font-mono text-[12px] uppercase tracking-[0.1em] text-[var(--copper)]">
+                    {r.station_id}
+                  </td>
+                  <Td value={r.humidity} unit="%" />
+                  <Td value={r.soil_moisture} unit="%" />
+                  <Td value={r.rainfall} unit="mm" />
+                  <td className="px-5 py-3">{riskTag(r.risk_level)}</td>
                 </tr>
               ))}
             </tbody>
           </table>
         )}
       </div>
-    </div>
+    </section>
+  )
+}
+
+function Th({ children, align = "left" }: { children: React.ReactNode; align?: "left" | "right" }) {
+  return (
+    <th
+      className={`px-5 py-3 font-mono text-[10px] tracking-[0.2em] uppercase text-[var(--ink-400)] font-medium ${
+        align === "right" ? "text-right" : "text-left"
+      }`}
+    >
+      {children}
+    </th>
+  )
+}
+
+function Td({ value, unit }: { value: number | null; unit: string }) {
+  return (
+    <td className="px-5 py-3 text-right">
+      <span className="ticker font-display text-[16px] text-[var(--ink-100)]">
+        {value != null ? value.toFixed(1) : "—"}
+      </span>
+      <span className="font-mono text-[10px] text-[var(--ink-400)] ml-1">{unit}</span>
+    </td>
   )
 }

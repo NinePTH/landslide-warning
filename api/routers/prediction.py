@@ -48,8 +48,12 @@ def get_latest_prediction(station_id: Optional[str] = None) -> dict:
 
     data["slope_angle"]        = config["slope_angle"]
     data["proximity_to_water"] = config["proximity_to_water"]
+    # Sensor reports soil_moisture as a percentage (0-100); the model was trained on
+    # Soil_Saturation in 0-1 scale. Normalize before inference; the response keeps the
+    # original 0-100 value so the dashboard's `%` display stays correct.
+    sm_for_model = soil_moisture / 100.0
     data["risk_level"]         = predict_risk(
-        rainfall, soil_moisture,
+        rainfall, sm_for_model,
         config["slope_angle"], config["proximity_to_water"],
         humidity,
     )

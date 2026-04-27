@@ -3,8 +3,10 @@
 import { sendAlert } from "@/lib/api"
 import { useState } from "react"
 
+type Status = "idle" | "loading" | "success" | "error"
+
 export default function AlertButton() {
-  const [status, setStatus] = useState<"idle" | "loading" | "success" | "error">("idle")
+  const [status, setStatus] = useState<Status>("idle")
   const [message, setMessage] = useState("")
 
   const handleSend = async () => {
@@ -13,41 +15,62 @@ export default function AlertButton() {
     try {
       await sendAlert()
       setStatus("success")
-      setMessage("Alert sent via Telegram.")
+      setMessage("Broadcast dispatched.")
     } catch (err: unknown) {
       setStatus("error")
-      setMessage(err instanceof Error ? err.message : "Failed to send alert.")
+      setMessage(err instanceof Error ? err.message : "Broadcast failed.")
     } finally {
-      setTimeout(() => setStatus("idle"), 4000)
+      setTimeout(() => setStatus("idle"), 4500)
     }
   }
 
+  const tint =
+    status === "success"
+      ? "var(--sage-soft)"
+      : status === "error"
+      ? "var(--terracotta)"
+      : "var(--terracotta-soft)"
+
   return (
     <div className="flex items-center gap-3">
-      <button
-        onClick={handleSend}
-        disabled={status === "loading"}
-        className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-red-600 text-white text-sm font-medium
-          hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-sm"
-      >
-        {status === "loading" ? (
-          <>
-            <span className="h-3.5 w-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-            Sending...
-          </>
-        ) : (
-          <>
-            <span>⚠</span> Send Alert
-          </>
-        )}
-      </button>
       {message && (
         <span
-          className={`text-sm ${status === "success" ? "text-green-600" : "text-red-500"}`}
+          aria-live="polite"
+          className="font-mono text-[10px] tracking-[0.2em] uppercase"
+          style={{ color: tint }}
         >
           {message}
         </span>
       )}
+      <button
+        onClick={handleSend}
+        disabled={status === "loading"}
+        aria-label="Broadcast Discord alert"
+        className="group relative inline-flex items-center gap-3 px-4 py-2.5 border
+          font-mono text-[11px] tracking-[0.2em] uppercase transition-all
+          disabled:cursor-not-allowed
+          hover:bg-[rgba(196,99,58,0.08)]"
+        style={{
+          borderColor: "var(--terracotta)",
+          color: "var(--terracotta-soft)",
+        }}
+      >
+        <span
+          className="block w-1.5 h-1.5"
+          style={{
+            background: "var(--terracotta)",
+            boxShadow:
+              status === "loading"
+                ? "0 0 0 0 var(--terracotta-glow)"
+                : "0 0 8px var(--terracotta)",
+            animation: status === "loading" ? "live-pulse 1.2s ease-in-out infinite" : undefined,
+          }}
+        />
+        {status === "loading" ? "Dispatching" : "Broadcast Alert"}
+        <span aria-hidden className="text-[var(--terracotta)] opacity-60 group-hover:opacity-100 transition-opacity">
+          →
+        </span>
+      </button>
     </div>
   )
 }

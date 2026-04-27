@@ -13,7 +13,7 @@ This guide covers deploying the Landslide Warning System to real hardware: a Ras
 6. Deploy dashboard to Vercel → get Vercel domain
 7. Update `.env` with tunnel URL and Vercel domain, restart services
 8. Flash NodeMCU
-9. Set up Telegram Bot
+9. Set up Discord webhook
 
 ---
 
@@ -96,8 +96,7 @@ MQTT_BROKER=localhost
 MQTT_PORT=1883
 MQTT_TOPIC=landslide/sensors
 
-TELEGRAM_BOT_TOKEN=        # fill in after step 9
-TELEGRAM_CHAT_ID=          # fill in after step 9
+DISCORD_WEBHOOK_URL=       # fill in after step 9
 
 API_URL=                   # fill in after step 5 (Cloudflare Tunnel URL)
 CORS_ORIGINS=http://localhost:3000   # update after step 6 (add Vercel domain)
@@ -419,39 +418,26 @@ Default values (adjust for your sensor):
 
 ---
 
-## 8. Telegram Bot Setup
+## 8. Discord Webhook Setup
 
-### 8.1 Create a bot
+### 8.1 Create a webhook in your Discord server
 
-1. Open Telegram and search for **@BotFather**
-2. Send `/newbot`
-3. Follow the prompts — choose a name and username
-4. BotFather replies with your **Bot Token** (format: `123456789:ABCdef...`)
+1. Open the Discord server (or create one) where alerts should land.
+2. Choose the channel that should receive alerts → **Edit Channel** (gear icon).
+3. **Integrations** → **Webhooks** → **New Webhook**.
+4. Give it a name (e.g. `Landslide Warning`) and optionally an avatar.
+5. Click **Copy Webhook URL** — keep it secret; anyone with the URL can post to that channel.
 
-### 8.2 Get your Chat ID
+The URL looks like `https://discord.com/api/webhooks/<id>/<token>`.
 
-**Option A — Personal chat:**
-1. Send any message to your new bot
-2. Open this URL in a browser (replace `<TOKEN>` with your bot token):
-   ```
-   https://api.telegram.org/bot<TOKEN>/getUpdates
-   ```
-3. Find `"chat":{"id": <number>}` in the response — that number is your Chat ID
-
-**Option B — Group chat:**
-1. Add the bot to a Telegram group
-2. Send a message in the group
-3. Use the `getUpdates` URL above — the Chat ID for a group is a negative number (e.g. `-1001234567890`)
-
-### 8.3 Update .env on the Pi
+### 8.2 Update .env on the Pi
 
 ```bash
 nano ~/landslide-warning/.env
 ```
 
 ```
-TELEGRAM_BOT_TOKEN=123456789:ABCdef...
-TELEGRAM_CHAT_ID=-1001234567890
+DISCORD_WEBHOOK_URL=https://discord.com/api/webhooks/123456789/abcdef...
 ```
 
 Restart the API service:
@@ -460,14 +446,14 @@ Restart the API service:
 sudo systemctl restart landslide-api
 ```
 
-### 8.4 Test the alert
+### 8.3 Test the alert
 
 ```bash
 curl -X POST https://<your-tunnel-url>/alert
-# Expected: {"ok":true,"detail":"Alert sent.","telegram_response":{...}}
+# Expected: {"ok":true,"detail":"Alert sent.","discord_status":204}
 ```
 
-You should receive a message in Telegram with the current station risk level.
+A rich-embed card should appear in the Discord channel with the current risk level, station ID, timestamp, and the latest sensor values (humidity, soil moisture, rainfall). The embed sidebar is colour-coded — sage for low, amber for medium, terracotta for high.
 
 ---
 
@@ -479,7 +465,7 @@ You should receive a message in Telegram with the current station risk level.
 - [ ] NodeMCU Serial Monitor shows successful MQTT publishes
 - [ ] `https://<tunnel-url>/readings` returns JSON data
 - [ ] Vercel dashboard loads and shows live sensor data
-- [ ] `POST /alert` delivers a Telegram message
+- [ ] `POST /alert` delivers a Discord embed
 
 ## Updating the Deployment
 

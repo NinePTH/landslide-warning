@@ -159,15 +159,14 @@ cd landslide-warning
 cp .env.example .env
 ```
 
-Edit `.env` and fill in values. For local development the defaults work as-is except for Telegram:
+Edit `.env` and fill in values. For local development the defaults work as-is — the Discord webhook is optional unless you want `/alert` to actually deliver a message:
 
 ```
 DATABASE_URL=postgresql://landslide:landslide@localhost:5432/landslide_db
 MQTT_BROKER=localhost
 MQTT_PORT=1883
 MQTT_TOPIC=landslide/sensors
-TELEGRAM_BOT_TOKEN=          # optional — leave blank to skip alerts
-TELEGRAM_CHAT_ID=            # optional
+DISCORD_WEBHOOK_URL=         # optional — leave blank to skip alerts
 API_URL=http://localhost:8000
 CORS_ORIGINS=http://localhost:3000
 ```
@@ -356,7 +355,7 @@ curl "http://localhost:8000/predict"
 # Historical data for the past 24 hours
 curl "http://localhost:8000/history?from=2026-03-22T00:00:00Z&to=2026-03-23T23:59:59Z"
 
-# Send Telegram alert (requires TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID in .env)
+# Send Discord alert (requires DISCORD_WEBHOOK_URL in .env)
 curl -X POST "http://localhost:8000/alert"
 
 # Send alert with custom message
@@ -498,7 +497,7 @@ python simulate.py
 | `⨯ Another next dev server is already running` on port 3000 | Port 3000 already occupied by a previous `npm run dev` | Next.js prints the exact command to run — e.g. `taskkill /PID 22060 /F` — copy and run it, then retry `npm run dev` |
 | `FileNotFoundError: model.pkl not found` | Training script not run yet | `cd api && python train_model.py` |
 | `ModuleNotFoundError: No module named 'fastapi'` | Virtual environment not activated or deps not installed | `source .venv/bin/activate && pip install -r requirements.txt` |
-| `503 Telegram credentials not configured` | `TELEGRAM_BOT_TOKEN` or `TELEGRAM_CHAT_ID` missing in `.env` | Add the values to `.env`; leave blank to skip Telegram |
+| `503 DISCORD_WEBHOOK_URL not configured` | `DISCORD_WEBHOOK_URL` missing in `.env` | Add a webhook URL to `.env` (Server Settings → Integrations → Webhooks → New Webhook), or leave blank to skip alerts |
 | CORS error in browser | `CORS_ORIGINS` in `.env` does not include the frontend origin | Add `http://localhost:3000` to `CORS_ORIGINS` in `.env` and restart the API |
 | `ENOTEMPTY: directory not empty` during `npm install` | Windows filesystem timing issue with concurrent npm operations | Re-run `npm install` — it completes cleanly on retry |
 | `[DB] Table, hypertable, and retention policy ready.` but subscriber crashes immediately | `DATABASE_URL` in `.env` is wrong or DB is not yet ready | Verify `.env` values; wait ~5s after `docker compose up` and retry |

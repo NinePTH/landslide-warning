@@ -2,7 +2,7 @@
 
 ## Project Overview
 IoT-based landslide prediction system using edge computing + machine learning.
-Sensors collect environmental data → Raspberry Pi processes and predicts risk → Web dashboard displays results → Telegram alerts when risk is high.
+Sensors collect environmental data → Raspberry Pi processes and predicts risk → Web dashboard displays results → Discord webhook posts an alert when risk is high.
 
 ## Hardware
 - NodeMCU / Arduino — reads sensors, publishes via MQTT
@@ -14,7 +14,7 @@ Sensors → MQTT (Mosquitto) → FastAPI → TimescaleDB
                                       ↓
                               ML Model (KNN / Random Forest)
                                       ↓
-                         Web Dashboard + Telegram Bot
+                         Web Dashboard + Discord Webhook
 
 - Cloudflare Tunnel exposes Raspberry Pi FastAPI to the internet
 - Web Dashboard deployed on Vercel (Next.js) or Grafana Cloud
@@ -35,7 +35,7 @@ landslide-warning/
 - Backend API: FastAPI + SQLAlchemy
 - Database: PostgreSQL + TimescaleDB (local on Pi)
 - ML: Scikit-learn — KNN (baseline) and Random Forest (comparison)
-- Notification: Telegram Bot API
+- Notification: Discord webhook (rich embed)
 - Dashboard: Next.js on Vercel OR Grafana connected to TimescaleDB
 - Tunnel: Cloudflare Tunnel
 
@@ -87,9 +87,8 @@ MQTT_BROKER=localhost
 MQTT_PORT=1883
 MQTT_TOPIC=landslide/sensors
 
-# Telegram
-TELEGRAM_BOT_TOKEN=your_token_here
-TELEGRAM_CHAT_ID=your_chat_id_here
+# Discord
+DISCORD_WEBHOOK_URL=https://discord.com/api/webhooks/...
 
 # API
 API_URL=https://your-cloudflare-tunnel-url.com  ← เปลี่ยนตอน deploy จริง
@@ -138,7 +137,7 @@ SELECT add_retention_policy('sensor_readings', INTERVAL '90 days');
 - GET  /readings?station_id=&limit=   ← ดึงข้อมูล sensor ล่าสุด
 - GET  /predict                        ← รัน ML และคืน risk level ปัจจุบัน
 - GET  /history?from=&to=             ← ดึงข้อมูลย้อนหลัง
-- POST /alert                          ← trigger Telegram notification
+- POST /alert                          ← trigger Discord webhook notification
 
 CORS ต้องรองรับทั้ง localhost และ Vercel domain
 URL ทั้งหมดให้อ่านจาก .env

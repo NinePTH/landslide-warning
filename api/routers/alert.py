@@ -9,8 +9,14 @@ from routers.prediction import get_latest_prediction
 
 router = APIRouter()
 
-TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "")
-TELEGRAM_CHAT_ID   = os.getenv("TELEGRAM_CHAT_ID", "")
+DISCORD_WEBHOOK_URL = os.getenv("DISCORD_WEBHOOK_URL", "")
+
+# Embed sidebar colors — match the dashboard's earth palette.
+RISK_COLORS = {
+    "low":    0x7D9B76,  # sage
+    "medium": 0xD9A441,  # amber
+    "high":   0xC4633A,  # terracotta
+}
 
 
 class AlertBody(BaseModel):
@@ -19,36 +25,54 @@ class AlertBody(BaseModel):
 
 @router.post("/alert")
 async def post_alert(body: AlertBody = AlertBody()):
-    """Send a Telegram notification. Auto-generates message from latest prediction if not provided."""
-    if not TELEGRAM_BOT_TOKEN or not TELEGRAM_CHAT_ID:
-        raise HTTPException(status_code=503, detail="Telegram credentials not configured.")
+    """Send a Discord webhook notification.
 
-    message = body.message
-    if not message:
+    If `message` is omitted, auto-generates a rich embed from the latest prediction.
+    """
+    if not DISCORD_WEBHOOK_URL:
+        raise HTTPException(status_code=503, detail="DISCORD_WEBHOOK_URL not configured.")
+
+    if body.message:
+        payload: dict = {"content": body.message}
+    else:
         try:
-            latest  = get_latest_prediction()
-            risk    = latest.get("risk_level", "unknown")
-            station = latest.get("station_id", "unknown")
-            ts      = latest.get("time", "")
-            message = (
-                f"[Landslide Warning]\n"
-                f"Station: {station}\n"
-                f"Risk Level: {risk.upper()}\n"
-                f"Time: {ts}\n"
-                f"Humidity: {latest.get('humidity')}%\n"
-                f"Soil Moisture: {latest.get('soil_moisture')}%\n"
-                f"Rainfall: {latest.get('rainfall')} mm"
-            )
+            latest = get_latest_prediction()
         except HTTPException as e:
-            raise HTTPException(status_code=e.status_code, detail=f"Cannot auto-generate alert: {e.detail}")
+            raise HTTPException(
+                status_code=e.status_code,
+                detail=f"Cannot auto-generate alert: {e.detail}",
+            )
 
-    url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
-    payload = {"chat_id": TELEGRAM_CHAT_ID, "text": message, "parse_mode": "HTML"}
+        risk    = (latest.get("risk_level") or "unknown").lower()
+        station = latest.get("station_id", "—")
+        ts      = latest.get("time", "—")
+
+        payload = {
+            "embeds": [
+                {
+                    "title":       "Landslide Warning",
+                    "description": f"Risk level: **{risk.upper()}**",
+                    "color":       RISK_COLORS.get(risk, 0x5E8AA6),
+                    "fields": [
+                        {"name": "Station",       "value": str(station), "inline": True},
+                        {"name": "Time",          "value": str(ts),      "inline": True},
+                        {"name": "​",        "value": "​",     "inline": True},
+                        {"name": "Humidity",      "value": f"{latest.get('humidity')} %",      "inline": True},
+                        {"name": "Soil Moisture", "value": f"{latest.get('soil_moisture')} %", "inline": True},
+                        {"name": "Rainfall",      "value": f"{latest.get('rainfall')} mm",     "inline": True},
+                    ],
+                    "footer": {"text": "Landslide Warning · Field Station"},
+                }
+            ]
+        }
 
     async with httpx.AsyncClient(timeout=10.0) as client:
-        resp = await client.post(url, json=payload)
+        resp = await client.post(DISCORD_WEBHOOK_URL, json=payload)
 
     if not resp.is_success:
-        raise HTTPException(status_code=502, detail=f"Telegram API error: {resp.text}")
+        raise HTTPException(
+            status_code=502,
+            detail=f"Discord webhook error ({resp.status_code}): {resp.text}",
+        )
 
-    return {"ok": True, "detail": "Alert sent.", "telegram_response": resp.json()}
+    return {"ok": True, "detail": "Alert sent.", "discord_status": resp.status_code}
