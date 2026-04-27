@@ -10,12 +10,15 @@ Backfill seeds the last 24 h with 288 points (one every 5 minutes) and 3 storm e
 spaced across the window so the dashboard's history chart has visible peaks at startup.
 
 Usage (run from api/ with the venv activated):
-    python simulate.py
+    python simulate.py                # publishes as station_01 (default)
+    python simulate.py station_02     # publishes as a different station
+Run two simulators in parallel terminals to exercise multi-station data flows.
 """
 
 import json
 import os
 import random
+import sys
 import time
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -28,7 +31,7 @@ load_dotenv(Path(__file__).parent.parent / ".env")
 BROKER  = os.getenv("MQTT_BROKER", "localhost")
 PORT    = int(os.getenv("MQTT_PORT", 1883))
 TOPIC   = os.getenv("MQTT_TOPIC", "landslide/sensors")
-STATION = "station_01"
+STATION = sys.argv[1] if len(sys.argv) > 1 else "station_01"
 
 BACKFILL_POINTS    = 288   # 24 h at 5-min intervals
 BACKFILL_STORMS    = 3
@@ -109,7 +112,7 @@ def live(client: mqtt.Client) -> None:
         "CALMING":  ("CALM",     random.randint(18, 36)),
     }
 
-    print(f"[Sim] → {state} (live, every {LIVE_INTERVAL_SECS}s)")
+    print(f"[Sim] -> {state} (live, every {LIVE_INTERVAL_SECS}s)")
 
     while True:
         if state == "CALM":
@@ -138,13 +141,14 @@ def live(client: mqtt.Client) -> None:
                 ticks_left = random.randint(6, 12)
             elif state == "CALM":
                 ticks_left = random.randint(18, 36)
-            print(f"[Sim] → {state}")
+            print(f"[Sim] -> {state}")
 
         time.sleep(LIVE_INTERVAL_SECS)
 
 
 def main() -> None:
     client = mqtt.Client()
+    print(f"[Sim] Station: {STATION}")
     print(f"[Sim] Connecting to {BROKER}:{PORT}...")
     client.connect(BROKER, PORT, keepalive=60)
     client.loop_start()

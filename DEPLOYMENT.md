@@ -107,7 +107,15 @@ CORS_ORIGINS=http://localhost:3000   # update after step 6 (add Vercel domain)
 # (slope_angle=30.0, proximity_to_water=1.0), which won't reflect real station geography.
 STATION_01_SLOPE_ANGLE=35.0
 STATION_01_PROXIMITY_TO_WATER=0.5
+STATION_02_SLOPE_ANGLE=42.0
+STATION_02_PROXIMITY_TO_WATER=0.3
 ```
+
+> **Adding a new station later:** append a new pair (e.g. `STATION_03_SLOPE_ANGLE=...`,
+> `STATION_03_PROXIMITY_TO_WATER=...`) to `.env`, restart the API service
+> (`sudo systemctl restart landslide-api`) so the new env vars load, then flash that
+> NodeMCU's `sensor/config.h` with the matching `STATION_ID`. The dashboard discovers
+> the new station automatically via `GET /stations` once it publishes its first reading.
 
 ---
 

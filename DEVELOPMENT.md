@@ -87,25 +87,19 @@ Open **http://localhost:8000/docs** for the interactive API docs.
 
 ### Inject test data (no NodeMCU needed)
 
-With all 4 services running, publish some readings using Python (no extra tools needed):
+The fastest way is the bundled storm-cycle simulator, which also backfills 24 h of history:
 
 ```bash
-cd api
-source .venv/Scripts/activate   # Windows (Git Bash)
-python -c "
-import paho.mqtt.client as mqtt, json, time
-client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2)
-client.connect('localhost', 1883)
-client.loop_start()
-msgs = [
-    {'station_id':'station_01','timestamp':'2026-04-12T10:00:00Z','humidity':85.0,'soil_moisture':72.0,'rainfall':15.0},
-    {'station_id':'station_01','timestamp':'2026-04-12T10:00:30Z','humidity':40.0,'soil_moisture':20.0,'rainfall':1.0},
-    {'station_id':'station_01','timestamp':'2026-04-12T10:01:00Z','humidity':68.0,'soil_moisture':50.0,'rainfall':10.0},
-]
-for m in msgs: client.publish('landslide/sensors', json.dumps(m)); print('Published:', m['humidity'])
-time.sleep(1); client.disconnect()
-"
+cd api && source .venv/Scripts/activate
+python simulate.py
 ```
+
+It backfills 288 points across the last 24 hours with 3 storm events, then keeps streaming
+live readings that cycle through CALM → ESCALATE → STORM → CALMING phases every few
+minutes — so the dashboard's risk banner visibly toggles between sage / amber / terracotta.
+
+For one-off publishes (single readings) or alternative recipes, see the
+[Simulating MQTT Sensor Data](#simulating-mqtt-sensor-data-no-hardware) section below.
 
 The dashboard refreshes every 30 seconds automatically, or reload the page to see data immediately.
 
@@ -436,52 +430,135 @@ time.sleep(1); client.disconnect()
 "
 ```
 
-### Continuous simulation (Python script)
+### Multi-station end-to-end test runbook
 
-Run this to simulate a sensor publishing readings every 30 seconds with gradually increasing values:
+The repo ships a ready-to-run simulator at `api/simulate.py`. It first **backfills the
+last 24 hours** with 288 points (one every 5 minutes), seeded with 3 storm events spread
+across the window so the dashboard's history chart has visible peaks at startup. It then
+**live-streams every 5 seconds**, cycling through weather phases:
 
-```python
-import json
-import random
-import time
-from datetime import datetime, timezone
+| Phase      | Duration   | Risk it produces |
+|------------|-----------:|------------------|
+| `CALM`     | 90–180 s   | low              |
+| `ESCALATE` | 30 s       | low -> medium    |
+| `STORM`    | 30–60 s    | high             |
+| `CALMING`  | 30 s       | medium -> low    |
 
-import paho.mqtt.client as mqtt
+The redesigned dashboard's risk banner visibly toggles between sage / amber / terracotta
+as the storm cycle progresses — useful for demos and for confirming the ML pipeline
+reacts end-to-end.
 
-BROKER = "localhost"
-PORT   = 1883
-TOPIC  = "landslide/sensors"
+#### Pre-flight (one-time)
 
-# paho-mqtt 2.x requires CallbackAPIVersion to avoid a DeprecationWarning
-client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2)
-client.connect(BROKER, PORT)
-client.loop_start()
+- Docker Desktop is running (Windows).
+- `api/.venv` exists with deps installed (`pip install -r requirements.txt`).
+- `dashboard/node_modules` exists (`npm install`) and `dashboard/.env.local` contains
+  `NEXT_PUBLIC_API_URL=http://localhost:8000`.
 
-print(f"Simulating sensor data on {TOPIC} — Ctrl+C to stop")
-
-try:
-    while True:
-        payload = {
-            "station_id": "station_01",
-            "timestamp": datetime.now(tz=timezone.utc).isoformat().replace("+00:00", "Z"),
-            "humidity":      round(random.uniform(40, 95), 1),
-            "soil_moisture": round(random.uniform(10, 90), 1),
-            "rainfall":      round(random.uniform(0, 40), 1),
-        }
-        client.publish(TOPIC, json.dumps(payload))
-        print(f"Published: {payload}")
-        time.sleep(30)
-except KeyboardInterrupt:
-    client.loop_stop()
-    client.disconnect()
-    print("Stopped.")
-```
-
-Save this as `simulate.py` and run it with the activated virtual environment:
+#### Boot sequence — 6 terminals
 
 ```bash
+# T1 — services (one-shot, exits after starting containers)
+docker compose up -d
+
+# T2 — MQTT subscriber (writes incoming messages into the DB)
+cd api && source .venv/Scripts/activate    # Windows; use .venv/bin/activate on Linux/macOS
+python mqtt_subscriber.py
+
+# T3 — FastAPI backend
+cd api && source .venv/Scripts/activate
+uvicorn main:app --reload --host 0.0.0.0 --port 8000
+
+# T4 — simulator for station_01 (default)
+cd api && source .venv/Scripts/activate
 python simulate.py
+
+# T5 — simulator for station_02
+cd api && source .venv/Scripts/activate
+python simulate.py station_02
+
+# T6 — dashboard
+cd dashboard
+npm run dev
 ```
+
+Each simulator invocation runs an independent state machine, so the dashboard's
+regional bar shows `Critical (1 of 2)` whenever one station is in its `STORM` phase
+while the other is calm.
+
+#### Sanity check — curl before opening the browser
+
+```bash
+curl -s http://localhost:8000/stations
+# Expected: [{"station_id":"station_01"},{"station_id":"station_02"}]
+
+curl -s "http://localhost:8000/predict?station_id=station_01" | python -m json.tool
+# Expected: JSON with humidity, soil_moisture, rainfall, slope_angle=35.0,
+# proximity_to_water=0.5, and a risk_level that changes as the storm cycle advances.
+```
+
+#### Expected simulator output
+
+```
+[Sim] Station: station_01
+[Sim] Connecting to localhost:1883...
+[Sim] Backfilled 288 points across 3 storm event(s).
+[Sim] -> CALM (live, every 5s)
+[Sim] -> ESCALATE
+[Sim] -> STORM
+[Sim] -> CALMING
+```
+
+#### What you should see at http://localhost:3000
+
+- Regional bar at the top: `Critical (1 of 2)` (or `Stable (2 of 2)` between storms).
+- Two side-by-side risk banners with station accent stripes (mineral-blue for
+  `station_01`, copper for `station_02`).
+- History chart with both station overlays plus a metric toggle
+  (`Soil Moisture · Rainfall · Humidity`).
+- Ledger interleaving rows from both stations with colour-coded badges.
+
+#### Gotchas
+
+1. **Dashboard renders but every panel is empty.** Means the dashboard isn't on port
+   3000 — Next.js silently rolls over to 3001 / 3002 if 3000 is already bound (common
+   culprits: an IDE preview server, or a zombie from an earlier `npm run dev`). The
+   API's `CORS_ORIGINS` defaults to `http://localhost:3000` only, so fetches from
+   3001 / 3002 are blocked. Free port 3000 and restart the dashboard:
+   ```bash
+   netstat -ano | grep -E "LISTEN.*:3000"      # find the PID in the last column
+   powershell "Stop-Process -Id <PID> -Force"  # kill it
+   cd dashboard && npm run dev                 # should now grab 3000
+   ```
+
+2. **Simulator crashes on Windows with `UnicodeEncodeError: 'charmap' codec`.** If the
+   simulator was last updated before commit `<this commit>`, its state-transition
+   prints used `→` which the Windows `cp1252` console can't encode. The current code
+   prints `->` instead. `git pull` and retry.
+
+#### Shutdown
+
+```bash
+# In each Tn terminal: Ctrl+C
+# Then from the repo root:
+docker compose down
+
+# Optional cleanup check:
+netstat -ano | grep -E "LISTEN.*:(3000|8000|1883|5433)"
+# Expected: no output.
+```
+
+#### Adding more stations later
+
+The simulator accepts the station ID as the first positional argument (defaults to
+`station_01`). For each new station:
+
+1. Append `STATION_<ID>_SLOPE_ANGLE` and `STATION_<ID>_PROXIMITY_TO_WATER` to `.env`.
+2. Restart `uvicorn` (the API reads env vars at request time, but a clean restart
+   avoids any stale-cache surprises).
+3. Run another `python simulate.py station_<id>` in its own terminal.
+
+The dashboard auto-discovers new stations on its next 30 s poll via `GET /stations`.
 
 ---
 

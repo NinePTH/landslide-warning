@@ -1,4 +1,4 @@
-import { PredictResponse, SensorReading } from "@/types"
+import { PredictResponse, SensorReading, Station } from "@/types"
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000"
 
@@ -6,6 +6,10 @@ async function apiFetch<T>(path: string): Promise<T> {
   const res = await fetch(`${API_URL}${path}`, { cache: "no-store" })
   if (!res.ok) throw new Error(`API error ${res.status}: ${await res.text()}`)
   return res.json()
+}
+
+export async function fetchStations(): Promise<Station[]> {
+  return apiFetch("/stations")
 }
 
 export async function fetchReadings(stationId?: string, limit = 50): Promise<SensorReading[]> {

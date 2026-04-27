@@ -226,7 +226,6 @@ For the dashboard, also set in `dashboard/.env.local`:
 - **Sensor coverage is limited.** The system uses only three inputs: air humidity, soil moisture, and rainfall. Real-world landslide monitoring also requires tilt sensors, pore water pressure sensors, and seismic sensors for reliable prediction.
 - **Rainfall measurement is binary.** The YL-83 rain gauge outputs a digital on/off signal. It does not measure rainfall accumulation in mm/h. A tipping-bucket rain gauge would provide quantitative data.
 - **ML model trained on a static CSV dataset by default.** Training uses `api/ml/landslide_dataset.csv` (~2000 rows) until a deployed installation accumulates ≥ 50 labeled rows in the DB; only then does retraining switch to real data. Synthetic data is only a last-resort fallback if neither source is available.
-- **Single-station support in the dashboard.** The API supports multiple stations via `station_id` filtering, but the dashboard displays data for one station at a time.
 - **No authentication.** The API has no authentication layer. It should not be exposed to the public internet without adding API key or OAuth protection.
 
 ### Potential Improvements

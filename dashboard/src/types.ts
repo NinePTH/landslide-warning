@@ -15,6 +15,28 @@ export interface PredictResponse extends SensorReading {
   proximity_to_water: number
 }
 
+export interface Station {
+  station_id: string
+}
+
+/**
+ * Ordered station palette — assigned by index in the sorted stations list.
+ * Stable while the station set is stable. Wraps modulo if more stations
+ * appear than colours.
+ */
+export const STATION_PALETTE = [
+  { accent: "#5E8AA6", soft: "rgba(94, 138, 166, 0.12)", name: "mineral-blue" },  // station_01
+  { accent: "#B08A4F", soft: "rgba(176, 138, 79, 0.12)", name: "copper" },        // station_02
+  { accent: "#A26B54", soft: "rgba(162, 107, 84, 0.12)", name: "clay" },          // station_03
+  { accent: "#7D9B76", soft: "rgba(125, 155, 118, 0.12)", name: "sage" },         // station_04
+  { accent: "#9C7B9F", soft: "rgba(156, 123, 159, 0.12)", name: "heather" },      // station_05
+] as const
+
+export function stationColor(stations: Station[], stationId: string) {
+  const idx = stations.findIndex((s) => s.station_id === stationId)
+  return STATION_PALETTE[(idx === -1 ? 0 : idx) % STATION_PALETTE.length]
+}
+
 export type RiskLevel = "low" | "medium" | "high"
 
 export interface RiskTone {

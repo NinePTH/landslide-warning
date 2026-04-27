@@ -6,7 +6,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from database import init_db
-from routers import alert, prediction, readings
+from routers import alert, prediction, readings, stations
 
 load_dotenv(Path(__file__).parent.parent / ".env")
 
@@ -25,6 +25,7 @@ app.add_middleware(
 app.include_router(readings.router)
 app.include_router(prediction.router)
 app.include_router(alert.router)
+app.include_router(stations.router)
 
 
 @app.on_event("startup")

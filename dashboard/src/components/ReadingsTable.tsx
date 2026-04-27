@@ -1,9 +1,10 @@
 "use client"
 
-import { RISK_TONES, RiskLevel, SensorReading } from "@/types"
+import { RISK_TONES, RiskLevel, SensorReading, Station, stationColor } from "@/types"
 
 interface Props {
   readings: SensorReading[]
+  stations: Station[]
   loading: boolean
 }
 
@@ -40,14 +41,14 @@ const formatTime = (iso: string) =>
     second: "2-digit",
   })
 
-export default function ReadingsTable({ readings, loading }: Props) {
+export default function ReadingsTable({ readings, stations, loading }: Props) {
   return (
     <section className="border hairline">
       <header
         className="px-5 py-3 border-b hairline flex items-center justify-between"
       >
         <div className="flex items-baseline gap-3">
-          <span className="sigil">§ 04 · Ledger</span>
+          <span className="sigil">§ Ledger</span>
           <h2 className="font-display text-[20px] text-[var(--ink-100)] leading-none">
             Latest readings
           </h2>
@@ -78,23 +79,40 @@ export default function ReadingsTable({ readings, loading }: Props) {
               </tr>
             </thead>
             <tbody>
-              {readings.map((r, i) => (
-                <tr
-                  key={`${r.station_id}-${r.time}-${i}`}
-                  className="row-hover border-b hairline last:border-b-0"
-                >
-                  <td className="px-5 py-3 font-mono text-[12px] text-[var(--ink-200)] whitespace-nowrap">
-                    {formatTime(r.time)}
-                  </td>
-                  <td className="px-5 py-3 font-mono text-[12px] uppercase tracking-[0.1em] text-[var(--copper)]">
-                    {r.station_id}
-                  </td>
-                  <Td value={r.humidity} unit="%" />
-                  <Td value={r.soil_moisture} unit="%" />
-                  <Td value={r.rainfall} unit="mm" />
-                  <td className="px-5 py-3">{riskTag(r.risk_level)}</td>
-                </tr>
-              ))}
+              {readings.map((r, i) => {
+                const c = stationColor(stations, r.station_id)
+                return (
+                  <tr
+                    key={`${r.station_id}-${r.time}-${i}`}
+                    className="row-hover border-b hairline last:border-b-0"
+                  >
+                    <td className="px-5 py-3 font-mono text-[12px] text-[var(--ink-200)] whitespace-nowrap">
+                      {formatTime(r.time)}
+                    </td>
+                    <td className="px-5 py-3">
+                      <span
+                        className="inline-flex items-center gap-1.5 font-mono text-[11px] tracking-[0.12em] uppercase px-2 py-0.5"
+                        style={{
+                          background: c.soft,
+                          color: c.accent,
+                          border: `1px solid ${c.accent}`,
+                          borderRadius: "0",
+                        }}
+                      >
+                        <span
+                          className="block w-1.5 h-1.5"
+                          style={{ background: c.accent }}
+                        />
+                        {r.station_id}
+                      </span>
+                    </td>
+                    <Td value={r.humidity} unit="%" />
+                    <Td value={r.soil_moisture} unit="%" />
+                    <Td value={r.rainfall} unit="mm" />
+                    <td className="px-5 py-3">{riskTag(r.risk_level)}</td>
+                  </tr>
+                )
+              })}
             </tbody>
           </table>
         )}
