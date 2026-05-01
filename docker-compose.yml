@@ -1,6 +1,7 @@
 services:
   postgres:
     image: timescale/timescaledb:latest-pg15
+    restart: unless-stopped
     environment:
       POSTGRES_USER: landslide
       POSTGRES_PASSWORD: landslide
