@@ -49,11 +49,14 @@ export default function RiskBanner({
 
   const level = (prediction.risk_level as RiskLevel) ?? "low"
   const tone = RISK_TONES[level] ?? RISK_TONES.low
-  const isHigh = level === "high"
+  const sweepClass =
+    level === "critical" ? "risk-sweep risk-sweep-critical"
+      : level === "high" ? "risk-sweep"
+      : ""
 
   return (
     <article
-      className={`relative border ${isHigh ? "risk-sweep" : ""}`}
+      className={`relative border ${sweepClass}`}
       style={{
         background: tone.surface,
         borderColor: tone.accent,

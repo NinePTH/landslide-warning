@@ -13,9 +13,10 @@ DISCORD_WEBHOOK_URL = os.getenv("DISCORD_WEBHOOK_URL", "")
 
 # Embed sidebar colors — match the dashboard's earth palette.
 RISK_COLORS = {
-    "low":    0x7D9B76,  # sage
-    "medium": 0xD9A441,  # amber
-    "high":   0xC4633A,  # terracotta
+    "low":      0x7D9B76,  # sage
+    "medium":   0xD9A441,  # amber
+    "high":     0xC4633A,  # terracotta
+    "critical": 0x8B0000,  # dark red
 }
 
 
@@ -47,7 +48,7 @@ async def post_alert(body: AlertBody = AlertBody()):
         station = latest.get("station_id", "—")
         ts      = latest.get("time", "—")
 
-        payload = {
+        payload: dict = {
             "embeds": [
                 {
                     "title":       "Landslide Warning",
@@ -65,6 +66,8 @@ async def post_alert(body: AlertBody = AlertBody()):
                 }
             ]
         }
+        if risk == "critical":
+            payload["content"] = "@here"
 
     async with httpx.AsyncClient(timeout=10.0) as client:
         resp = await client.post(DISCORD_WEBHOOK_URL, json=payload)

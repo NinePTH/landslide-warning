@@ -15,6 +15,10 @@
   --ink-50:  #f5f0df;
 
   /* Risk earths */
+  --crimson:         #8b0000;
+  --crimson-soft:    #b53636;
+  --crimson-glow:    rgba(139, 0, 0, 0.45);
+
   --terracotta:      #c4633a;
   --terracotta-soft: #d27b54;
   --terracotta-glow: rgba(196, 99, 58, 0.35);
@@ -149,6 +153,16 @@ body::before {
   background-size: 220% 100%;
   animation: sweep 4.5s ease-in-out infinite;
   pointer-events: none;
+}
+/* Critical-risk sweep — faster, deeper red, conveys imminence */
+.risk-sweep-critical::after {
+  background: linear-gradient(110deg,
+    transparent 0%,
+    transparent 30%,
+    var(--crimson-glow) 50%,
+    transparent 70%,
+    transparent 100%);
+  animation-duration: 2.4s;
 }
 @keyframes sweep {
   0%   { background-position: 200% 0; }

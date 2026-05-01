@@ -37,7 +37,7 @@ export function stationColor(stations: Station[], stationId: string) {
   return STATION_PALETTE[(idx === -1 ? 0 : idx) % STATION_PALETTE.length]
 }
 
-export type RiskLevel = "low" | "medium" | "high"
+export type RiskLevel = "low" | "medium" | "high" | "critical"
 
 export interface RiskTone {
   /** Background fill (semi-transparent earth) */
@@ -80,8 +80,17 @@ export const RISK_TONES: Record<RiskLevel, RiskTone> = {
     accent:  "var(--terracotta)",
     ink:     "var(--terracotta-soft)",
     glow:    "var(--terracotta-glow)",
-    label:   "Critical",
-    code:    "STA-03 / RED",
+    label:   "High Risk",
+    code:    "STA-03 / RED-2",
     caption: "Slope failure conditions met. Issue advisory.",
+  },
+  critical: {
+    surface: "rgba(139, 0, 0, 0.14)",
+    accent:  "var(--crimson)",
+    ink:     "var(--crimson-soft)",
+    glow:    "var(--crimson-glow)",
+    label:   "Critical",
+    code:    "STA-04 / RED-1",
+    caption: "Imminent failure. Evacuate downslope area now.",
   },
 }

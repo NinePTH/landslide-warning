@@ -9,7 +9,7 @@ interface Props {
   online: boolean
 }
 
-const RISK_ORDER: RiskLevel[] = ["low", "medium", "high"]
+const RISK_ORDER: RiskLevel[] = ["low", "medium", "high", "critical"]
 
 function worstRisk(predictions: (PredictResponse | null)[]): RiskLevel | null {
   let worst: RiskLevel | null = null

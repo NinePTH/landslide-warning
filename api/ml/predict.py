@@ -46,10 +46,11 @@ def predict_risk(
     humidity: Optional[float] = None,
 ) -> str:
     """
-    Return risk level: 'low', 'medium', or 'high'.
+    Return risk level: 'low', 'medium', 'high', or 'critical'.
 
     ML predicts landslide (0/1) from rainfall, soil_moisture, slope_angle,
     proximity_to_water. Humidity >= 80% elevates the result one level.
+    Critical: ML predicts landslide + high humidity + heavy rainfall (>100mm).
     """
     model = load_model()
     ml_result = int(model.predict(np.array([[rainfall, soil_moisture, slope_angle, proximity_to_water]]))[0])
@@ -58,7 +59,10 @@ def predict_risk(
         return "medium" if ml_result == 1 else "low"
 
     high_humidity = humidity >= HUMIDITY_THRESHOLD
-    if ml_result == 1 and high_humidity:
+    # Critical: all danger indicators present
+    if ml_result == 1 and high_humidity and rainfall > 100.0:
+        return "critical"
+    elif ml_result == 1 and high_humidity:
         return "high"
     elif ml_result == 1 or high_humidity:
         return "medium"
