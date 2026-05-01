@@ -477,15 +477,54 @@ A rich-embed card should appear in the Discord channel with the current risk lev
 
 ## Updating the Deployment
 
-To pull new code and restart services:
+### Standard update
+
+```bash
+ssh -i ~/.ssh/id_pi pi@10.173.252.80
+cd ~/landslide-warning
+git pull
+api/.venv/bin/pip install -r api/requirements.txt   # safe no-op if nothing changed
+sudo systemctl restart landslide-api landslide-mqtt
+```
+
+> If the commit added new `.env` variables, add them to `~/landslide-warning/.env` before restarting.
+
+Verify:
+```bash
+curl -s http://localhost:8000/predict?station_id=station_01
+```
+
+### If pull fails due to local changes
+
+```bash
+git stash
+git pull
+git stash pop
+sudo systemctl restart landslide-api landslide-mqtt
+```
+
+### With model retraining
+
+Retrain when you change `api/ml/landslide_dataset.csv`, modify model features/logic in `train_model.py` or `predict.py`, or set up a fresh Pi with no `model.pkl`.
 
 ```bash
 cd ~/landslide-warning
 git pull
-source api/.venv/bin/activate
-pip install -r api/requirements.txt   # if requirements changed
-cd api && python train_model.py       # if model needs retraining
+api/.venv/bin/pip install -r api/requirements.txt
+cd api && .venv/bin/python train_model.py && cd ..
 sudo systemctl restart landslide-api landslide-mqtt
 ```
 
-For dashboard changes, Vercel auto-deploys on every push to the connected GitHub branch.
+### Files git will never touch
+
+| File | Reason |
+|------|--------|
+| `.env` | gitignored — holds Pi-specific ports, URLs, secrets |
+| `api/ml/model.pkl` | gitignored — retrain locally with `python train_model.py` |
+
+### Dashboard (Vercel)
+
+Vercel auto-deploys on every push to `main` — nothing to do manually unless the tunnel URL changed. If it did:
+
+1. Vercel dashboard → project → **Settings** → **Environment Variables** → update `NEXT_PUBLIC_API_URL`
+2. Redeploy (uncheck **Use existing Build Cache**)
