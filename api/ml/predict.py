@@ -62,6 +62,31 @@ def predict_risk(
     return str(result)
 
 
+def batch_predict_risk(rows: list[dict]) -> list[str]:
+    """
+    Predict risk for multiple rows in a single model.predict() call.
+
+    Each dict must have: rainfall, soil_moisture, slope_angle, proximity_to_water.
+    humidity is optional per row — falls back to HUMIDITY_DEFAULT if absent.
+    soil_moisture is expected already normalized to 0-1.
+    Returns a list of risk level strings in the same order as rows.
+    """
+    if not rows:
+        return []
+    model = load_model()
+    X = np.array([
+        [
+            r["rainfall"],
+            r["soil_moisture"],
+            r["slope_angle"],
+            r["proximity_to_water"],
+            r.get("humidity") if r.get("humidity") is not None else HUMIDITY_DEFAULT,
+        ]
+        for r in rows
+    ])
+    return [str(r) for r in model.predict(X)]
+
+
 if __name__ == "__main__":
     if len(sys.argv) != 6:
         print("Usage: python ml/predict.py <rainfall> <soil_moisture> <slope_angle> <proximity_to_water> <humidity>")

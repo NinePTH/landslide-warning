@@ -6,39 +6,48 @@ from fastapi import APIRouter, HTTPException, Query
 from sqlalchemy import select
 
 from database import engine, sensor_readings, row_to_dict
-from ml.predict import predict_risk
+from ml.predict import batch_predict_risk
 
 router = APIRouter()
 
+_station_config_cache: dict = {}
+
 
 def get_station_config(station_id: str) -> dict:
-    prefix = station_id.upper().replace("-", "_")
-    return {
-        "slope_angle":        float(os.getenv(f"{prefix}_SLOPE_ANGLE", "30.0")),
-        "proximity_to_water": float(os.getenv(f"{prefix}_PROXIMITY_TO_WATER", "1.0")),
-    }
+    if station_id not in _station_config_cache:
+        prefix = station_id.upper().replace("-", "_")
+        _station_config_cache[station_id] = {
+            "slope_angle":        float(os.getenv(f"{prefix}_SLOPE_ANGLE", "30.0")),
+            "proximity_to_water": float(os.getenv(f"{prefix}_PROXIMITY_TO_WATER", "1.0")),
+        }
+    return _station_config_cache[station_id]
 
 
-def attach_current_risk(row: dict) -> dict:
-    """Recalculate risk from the stored sensor values so history stays current."""
-    rainfall = row.get("rainfall")
-    soil_moisture = row.get("soil_moisture")
-    humidity = row.get("humidity")
+def attach_risk_batch(rows: list[dict]) -> list[dict]:
+    """Recompute risk_level for all rows in one model.predict() call."""
+    predictable = []
+    indices = []
+    for i, row in enumerate(rows):
+        if row.get("rainfall") is None or row.get("soil_moisture") is None:
+            continue
+        config = get_station_config(row.get("station_id", "station_01"))
+        row["slope_angle"]        = config["slope_angle"]
+        row["proximity_to_water"] = config["proximity_to_water"]
+        predictable.append({
+            "rainfall":            row["rainfall"],
+            "soil_moisture":       row["soil_moisture"] / 100.0,
+            "slope_angle":         config["slope_angle"],
+            "proximity_to_water":  config["proximity_to_water"],
+            "humidity":            row.get("humidity"),
+        })
+        indices.append(i)
 
-    if rainfall is None or soil_moisture is None:
-        return row
+    if predictable:
+        risk_levels = batch_predict_risk(predictable)
+        for i, risk in zip(indices, risk_levels):
+            rows[i]["risk_level"] = risk
 
-    config = get_station_config(row.get("station_id", "station_01"))
-    row["slope_angle"] = config["slope_angle"]
-    row["proximity_to_water"] = config["proximity_to_water"]
-    row["risk_level"] = predict_risk(
-        rainfall,
-        soil_moisture / 100.0,
-        config["slope_angle"],
-        config["proximity_to_water"],
-        humidity,
-    )
-    return row
+    return rows
 
 
 @router.get("/readings")
@@ -54,7 +63,7 @@ def get_readings(
     with engine.connect() as conn:
         rows = conn.execute(query).fetchall()
 
-    return [attach_current_risk(row_to_dict(r)) for r in rows]
+    return attach_risk_batch([row_to_dict(r) for r in rows])
 
 
 @router.get("/history")
@@ -87,4 +96,4 @@ def get_history(
     with engine.connect() as conn:
         rows = conn.execute(query).fetchall()
 
-    return [attach_current_risk(row_to_dict(r)) for r in rows]
+    return attach_risk_batch([row_to_dict(r) for r in rows])
