@@ -26,7 +26,6 @@ _model = None
 
 HUMIDITY_THRESHOLD = 80.0
 
-
 def load_model():
     global _model
     if _model is None:
@@ -59,6 +58,11 @@ def predict_risk(
         return "medium" if ml_result == 1 else "low"
 
     high_humidity = humidity >= HUMIDITY_THRESHOLD
+
+    # Strongly safe readings should stay low even if the model is noisy.
+    if rainfall <= 0.0 and soil_moisture <= 0.0 and not high_humidity:
+        return "low"
+
     # Critical: all danger indicators present
     if ml_result == 1 and high_humidity and rainfall > 100.0:
         return "critical"
