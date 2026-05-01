@@ -2,13 +2,21 @@ import os
 from pathlib import Path
 from dotenv import load_dotenv
 from sqlalchemy import create_engine, text, MetaData, Table, Column, Text, Float
+from sqlalchemy.engine import make_url
 from sqlalchemy.dialects.postgresql import TIMESTAMP
 
 load_dotenv(Path(__file__).parent.parent / ".env")
 
 DATABASE_URL = os.getenv("DATABASE_URL")
 
-engine = create_engine(DATABASE_URL)
+
+def _normalize_database_url(database_url: str):
+    url = make_url(database_url)
+    if url.drivername == "postgresql":
+        return url.set(drivername="postgresql+pg8000")
+    return url
+
+engine = create_engine(_normalize_database_url(DATABASE_URL))
 metadata = MetaData()
 
 sensor_readings = Table(

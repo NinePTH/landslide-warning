@@ -1,7 +1,7 @@
 fastapi
 uvicorn[standard]
 sqlalchemy
-psycopg2-binary
+pg8000
 paho-mqtt
 scikit-learn
 joblib

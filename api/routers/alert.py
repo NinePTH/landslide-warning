@@ -13,9 +13,10 @@ DISCORD_WEBHOOK_URL = os.getenv("DISCORD_WEBHOOK_URL", "")
 
 # Embed sidebar colors — match the dashboard's earth palette.
 RISK_COLORS = {
-    "low":    0x7D9B76,  # sage
-    "medium": 0xD9A441,  # amber
-    "high":   0xC4633A,  # terracotta
+    "low":      0x7D9B76,  # sage
+    "medium":   0xD9A441,  # amber
+    "high":     0xC4633A,  # terracotta
+    "critical": 0x8B0000,  # dark red
 }
 
 
@@ -46,8 +47,12 @@ async def post_alert(body: AlertBody = AlertBody()):
         risk    = (latest.get("risk_level") or "unknown").lower()
         station = latest.get("station_id", "—")
         ts      = latest.get("time", "—")
-
+        
+        # Add @here mention for critical alerts
+        mention = "@here " if risk == "critical" else ""
+        
         payload = {
+            "content": mention if risk == "critical" else None,
             "embeds": [
                 {
                     "title":       "Landslide Warning",
@@ -74,5 +79,6 @@ async def post_alert(body: AlertBody = AlertBody()):
             status_code=502,
             detail=f"Discord webhook error ({resp.status_code}): {resp.text}",
         )
+    print(resp.status_code, resp.text)
 
     return {"ok": True, "detail": "Alert sent.", "discord_status": resp.status_code}
