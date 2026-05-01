@@ -3,9 +3,10 @@ Train KNN and Random Forest models on landslide sensor data.
 Saves the better-performing model as ml/model.pkl.
 
 Data priority:
-  1. api/ml/landslide_dataset.csv  (real labeled data)
-  2. sensor_readings table in DB   (if >= 50 labeled rows)
-  3. Synthetic data                (fallback)
+  1. api/ml/landslide_dataset_v2.csv  (5 features + 4-class labels)
+  2. api/ml/landslide_dataset.csv     (4 features + binary, humidity imputed)
+  3. sensor_readings table in DB      (if >= 50 labeled rows)
+  4. Synthetic data                   (fallback)
 
 Usage:
     python train_model.py
@@ -22,24 +23,36 @@ from sklearn.ensemble import RandomForestClassifier
 from sklearn.metrics import classification_report, accuracy_score
 from sklearn.model_selection import train_test_split
 from sklearn.neighbors import KNeighborsClassifier
+from sklearn.pipeline import Pipeline
+from sklearn.preprocessing import StandardScaler
 from sqlalchemy import select
 
 from database import engine, sensor_readings
 
 load_dotenv(Path(__file__).parent.parent / ".env")
 
-CSV_PATH   = Path(__file__).parent / "ml" / "landslide_dataset.csv"
-MODEL_PATH = Path(__file__).parent / "ml" / "model.pkl"
+CSV_V2_PATH = Path(__file__).parent / "ml" / "landslide_dataset_v2.csv"
+CSV_V1_PATH = Path(__file__).parent / "ml" / "landslide_dataset.csv"
+MODEL_PATH  = Path(__file__).parent / "ml" / "model.pkl"
 
-FEATURES         = ["rainfall", "soil_moisture", "slope_angle", "proximity_to_water"]
+FEATURES         = ["rainfall", "soil_moisture", "slope_angle", "proximity_to_water", "humidity"]
+HUMIDITY_DEFAULT = 65.0
 MIN_LABELED_ROWS = 50
 RANDOM_STATE     = 42
+
+RISK_MAP = {0: "low", 1: "high"}   # v1 binary → string
 
 
 # --- Data Loading -------------------------------------------------
 
 def load_from_csv() -> pd.DataFrame:
-    df = pd.read_csv(CSV_PATH)
+    if CSV_V2_PATH.exists():
+        df = pd.read_csv(CSV_V2_PATH)
+        print(f"[Data] Loaded {len(df)} rows from v2 CSV (5 features, 4-class).")
+        return df[FEATURES + ["risk_level"]].dropna()
+
+    print("[Data] v2 CSV not found, falling back to v1 CSV.")
+    df = pd.read_csv(CSV_V1_PATH)
     df = df.rename(columns={
         "Rainfall_mm":        "rainfall",
         "Soil_Saturation":    "soil_moisture",
@@ -47,6 +60,9 @@ def load_from_csv() -> pd.DataFrame:
         "Proximity_to_Water": "proximity_to_water",
         "Landslide":          "risk_level",
     })
+    df["humidity"]    = HUMIDITY_DEFAULT
+    df["risk_level"]  = df["risk_level"].map(RISK_MAP)
+    print(f"[Data] Loaded {len(df)} rows from v1 CSV (humidity imputed at {HUMIDITY_DEFAULT}%).")
     return df[FEATURES + ["risk_level"]].dropna()
 
 
@@ -55,6 +71,7 @@ def load_from_db() -> pd.DataFrame:
         select(
             sensor_readings.c.rainfall,
             sensor_readings.c.soil_moisture,
+            sensor_readings.c.humidity,
             sensor_readings.c.risk_level,
         )
         .where(sensor_readings.c.risk_level.isnot(None))
@@ -62,31 +79,41 @@ def load_from_db() -> pd.DataFrame:
     with engine.connect() as conn:
         rows = conn.execute(query).fetchall()
 
-    df = pd.DataFrame(rows, columns=["rainfall", "soil_moisture", "risk_level"])
-    # DB data has no slope_angle / proximity_to_water — fill with neutral defaults
-    df["slope_angle"]         = 30.0
-    df["proximity_to_water"]  = 1.0
+    df = pd.DataFrame(rows, columns=["rainfall", "soil_moisture", "humidity", "risk_level"])
+    df["humidity"]           = df["humidity"].fillna(HUMIDITY_DEFAULT)
+    df["slope_angle"]        = 30.0
+    df["proximity_to_water"] = 1.0
     return df[FEATURES + ["risk_level"]].dropna()
 
 
-def generate_synthetic_data(n_per_class: int = 300) -> pd.DataFrame:
+def generate_synthetic_data(n_per_class: int = 500) -> pd.DataFrame:
     rng = np.random.default_rng(RANDOM_STATE)
 
     def sample(ranges, n):
         return {k: rng.uniform(lo, hi, n) for k, (lo, hi) in ranges.items()}
 
-    no_slide = sample({
-        "rainfall": (0, 100), "soil_moisture": (0, 0.4),
-        "slope_angle": (0, 25), "proximity_to_water": (1, 3),
-    }, n_per_class)
-    slide = sample({
-        "rainfall": (120, 300), "soil_moisture": (0.5, 1.0),
-        "slope_angle": (30, 70), "proximity_to_water": (0, 0.8),
-    }, n_per_class)
+    classes = {
+        "low": {
+            "rainfall": (50, 120), "soil_moisture": (0.0, 0.35),
+            "slope_angle": (5, 22), "proximity_to_water": (0.8, 2.0), "humidity": (30, 65),
+        },
+        "medium": {
+            "rainfall": (80, 180), "soil_moisture": (0.25, 0.60),
+            "slope_angle": (15, 38), "proximity_to_water": (0.4, 1.5), "humidity": (70, 90),
+        },
+        "high": {
+            "rainfall": (150, 260), "soil_moisture": (0.55, 0.85),
+            "slope_angle": (28, 52), "proximity_to_water": (0.1, 1.0), "humidity": (75, 94),
+        },
+        "critical": {
+            "rainfall": (230, 300), "soil_moisture": (0.78, 1.0),
+            "slope_angle": (38, 60), "proximity_to_water": (0.0, 0.6), "humidity": (85, 100),
+        },
+    }
 
     frames = []
-    for data, label in [(no_slide, 0), (slide, 1)]:
-        df = pd.DataFrame(data)
+    for label, ranges in classes.items():
+        df = pd.DataFrame(sample(ranges, n_per_class))
         df["risk_level"] = label
         frames.append(df)
 
@@ -94,10 +121,8 @@ def generate_synthetic_data(n_per_class: int = 300) -> pd.DataFrame:
 
 
 def get_training_data() -> pd.DataFrame:
-    if CSV_PATH.exists():
-        df = load_from_csv()
-        print(f"[Data] Loaded {len(df)} rows from CSV.")
-        return df
+    if CSV_V2_PATH.exists() or CSV_V1_PATH.exists():
+        return load_from_csv()
 
     print("[Data] CSV not found. Fetching labeled rows from database...")
     try:
@@ -128,8 +153,14 @@ def train_and_evaluate(df: pd.DataFrame):
     )
 
     models = {
-        "KNN (k=5)": KNeighborsClassifier(n_neighbors=5),
-        "Random Forest (n=100)": RandomForestClassifier(n_estimators=100, random_state=RANDOM_STATE),
+        "KNN (k=5)": Pipeline([
+            ("scaler", StandardScaler()),
+            ("clf",    KNeighborsClassifier(n_neighbors=5)),
+        ]),
+        "Random Forest (n=100)": Pipeline([
+            ("scaler", StandardScaler()),
+            ("clf",    RandomForestClassifier(n_estimators=100, random_state=RANDOM_STATE)),
+        ]),
     }
 
     results = {}

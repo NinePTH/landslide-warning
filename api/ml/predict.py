@@ -1,8 +1,11 @@
 """
 Prediction utility — loads model.pkl and classifies sensor readings.
 
-ML features: rainfall, soil_moisture, slope_angle, proximity_to_water
-Rule-based:  humidity >= 80% elevates risk level
+ML features: rainfall, soil_moisture, slope_angle, proximity_to_water, humidity
+Output: risk_level — 'low' / 'medium' / 'high' / 'critical'
+
+The model is a sklearn Pipeline (StandardScaler + classifier), so feature
+scaling is applied automatically. No rule-based layer — the model decides.
 
 As a module:
     from ml.predict import predict_risk
@@ -20,25 +23,21 @@ from typing import Optional
 import joblib
 import numpy as np
 
-MODEL_PATH = Path(__file__).parent / "model.pkl"
+MODEL_PATH       = Path(__file__).parent / "model.pkl"
+HUMIDITY_DEFAULT = 65.0   # used when sensor value is absent
 
 _model = None
 
-HUMIDITY_THRESHOLD = 80.0
 
 def load_model():
     global _model
     if _model is None:
         if not MODEL_PATH.exists():
-            # Fallback: return a safe dummy model that always predicts 'no landslide' (0).
-            # This prevents API endpoints from 500'ing when no trained model is present.
             class _FallbackModel:
                 def predict(self, X):
-                    import numpy as _np
-                    # return zeros shaped like sklearn outputs
-                    return _np.zeros((_np.asarray(X).shape[0],), dtype=int)
+                    return np.array(["low"] * np.asarray(X).shape[0])
 
-            print(f"[WARN] Model not found at {MODEL_PATH}. Using fallback model; run train_model.py to train a real model.")
+            print(f"[WARN] Model not found at {MODEL_PATH}. Using fallback (always 'low'). Run train_model.py.")
             _model = _FallbackModel()
         else:
             _model = joblib.load(MODEL_PATH)
@@ -55,25 +54,12 @@ def predict_risk(
     """
     Return risk level: 'low', 'medium', 'high', or 'critical'.
 
-    ML predicts landslide (0/1) from rainfall, soil_moisture, slope_angle,
-    proximity_to_water. Humidity >= 80% elevates the result one level.
-    Critical: ML predicts landslide + high humidity + heavy rainfall (>250mm) + high soil moisture (>80%).
+    humidity=None is allowed — falls back to a neutral default (65%).
     """
     model = load_model()
-    ml_result = int(model.predict(np.array([[rainfall, soil_moisture, slope_angle, proximity_to_water]]))[0])
-
-    
-    high_humidity = humidity >= HUMIDITY_THRESHOLD
-
-    # Critical: all danger indicators present
-    if ml_result == 1 and high_humidity and rainfall > 250.0 and soil_moisture > 0.8:
-        return "critical"
-    elif rainfall > 200.0 and soil_moisture > 0.7:
-        return "high"
-    elif high_humidity:
-        return "medium"
-    else:
-        return "low"
+    hum = humidity if humidity is not None else HUMIDITY_DEFAULT
+    result = model.predict(np.array([[rainfall, soil_moisture, slope_angle, proximity_to_water, hum]]))[0]
+    return str(result)
 
 
 if __name__ == "__main__":
