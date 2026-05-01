@@ -106,7 +106,7 @@ def on_message(client, userdata, msg):
             "risk_level":    None,
         }
 
-        if all(v is not None for v in [row["rainfall"], row["soil_moisture"], row["humidity"]]):
+        if row["rainfall"] is not None and row["soil_moisture"] is not None:
             slope_angle, proximity_to_water = get_station_config(row["station_id"])
             row["risk_level"] = predict_risk(
                 row["rainfall"],

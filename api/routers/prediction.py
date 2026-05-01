@@ -1,6 +1,7 @@
 import os
 from typing import Optional
 
+import httpx
 from fastapi import APIRouter, HTTPException, Query
 from sqlalchemy import select
 
@@ -9,6 +10,16 @@ from ml.predict import predict_risk
 
 router = APIRouter()
 
+DISCORD_WEBHOOK_URL = os.getenv("DISCORD_WEBHOOK_URL", "")
+
+# Discord embed colors
+RISK_COLORS = {
+    "low":      0x7D9B76,  # sage
+    "medium":   0xD9A441,  # amber
+    "high":     0xC4633A,  # terracotta
+    "critical": 0x8B0000,  # dark red
+}
+
 
 def get_station_config(station_id: str) -> dict:
     prefix = station_id.upper().replace("-", "_")
@@ -16,6 +27,42 @@ def get_station_config(station_id: str) -> dict:
         "slope_angle":        float(os.getenv(f"{prefix}_SLOPE_ANGLE", "30.0")),
         "proximity_to_water": float(os.getenv(f"{prefix}_PROXIMITY_TO_WATER", "1.0")),
     }
+
+
+def send_discord_alert(risk_level: str, data: dict):
+    """Send critical alert to Discord webhook."""
+    if not DISCORD_WEBHOOK_URL or risk_level != "critical":
+        return
+
+    try:
+        payload = {
+            "content": "@here",
+            "embeds": [
+                {
+                    "title":       "🚨 CRITICAL LANDSLIDE ALERT 🚨",
+                    "description": f"Risk level: **{risk_level.upper()}**",
+                    "color":       RISK_COLORS.get(risk_level, 0x5E8AA6),
+                    "fields": [
+                        {"name": "Station",       "value": str(data.get("station_id", "—")), "inline": True},
+                        {"name": "Time",          "value": str(data.get("time", "—")),      "inline": True},
+                        {"name": "​",             "value": "​",     "inline": True},
+                        {"name": "Humidity",      "value": f"{data.get('humidity')} %",      "inline": True},
+                        {"name": "Soil Moisture", "value": f"{data.get('soil_moisture')} %", "inline": True},
+                        {"name": "Rainfall",      "value": f"{data.get('rainfall')} mm",     "inline": True},
+                    ],
+                    "footer": {"text": "Landslide Warning · Field Station"},
+                }
+            ]
+        }
+
+        with httpx.Client(timeout=10.0) as client:
+            resp = client.post(DISCORD_WEBHOOK_URL, json=payload)
+            if resp.is_success:
+                print(f"[DISCORD] Critical alert sent from /predict ({resp.status_code})")
+            else:
+                print(f"[DISCORD] Alert failed ({resp.status_code}): {resp.text}")
+    except Exception as e:
+        print(f"[DISCORD] Error sending alert: {e}")
 
 
 def get_latest_prediction(station_id: Optional[str] = None) -> dict:
@@ -65,4 +112,10 @@ def get_predict(
     station_id: Optional[str] = Query(None, description="Station to predict for"),
 ):
     """Run ML model on the latest reading and return predicted risk level."""
-    return get_latest_prediction(station_id)
+    data = get_latest_prediction(station_id)
+    
+    # Send Discord alert if risk is critical
+    if data.get("risk_level") == "critical":
+        send_discord_alert(data["risk_level"], data)
+    
+    return data
