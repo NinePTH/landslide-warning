@@ -107,7 +107,7 @@ def generate_synthetic_data(n_per_class: int = 500) -> pd.DataFrame:
         },
         "critical": {
             "rainfall": (230, 300), "soil_moisture": (0.78, 1.0),
-            "slope_angle": (38, 60), "proximity_to_water": (0.0, 0.6), "humidity": (85, 100),
+            "slope_angle": (35, 60), "proximity_to_water": (0.0, 0.6), "humidity": (81, 100),
         },
     }
 
