@@ -17,7 +17,7 @@ Living record of the Raspberry Pi deployment for this project. Updated as the de
 | Disk | 29 GB SD card · 19 GB free at start |
 | Hostname | `raspberrypi` (default) |
 | User | `pi` |
-| LAN IP | DHCP, **changes often** — get current with `hostname -I` on the Pi or check the router. Observed history: `.106 → .24 → .221 → .56`. No static lease reserved (TODO if reliability matters). |
+| LAN IP | DHCP, **changes often** — get current with `hostname -I` on the Pi or check the router. Observed history: `.106 → .24 → .221 → .56 → .80`. No static lease reserved (TODO if reliability matters). |
 | Pre-installed by senior | Raspbian + WiFi only — no Postgres, Mosquitto, Docker, cloudflared, or any of our stack |
 | Pre-installed Python | `python3` 3.9.2 (system) |
 
@@ -27,7 +27,7 @@ Living record of the Raspberry Pi deployment for this project. Updated as the de
   - Laptop private key: `~/.ssh/id_pi` (ed25519, no passphrase)
   - Laptop public key: `~/.ssh/id_pi.pub`, comment `claude-on-laptop-to-pi`
   - Installed on Pi at `~/.ssh/authorized_keys`
-  - Connect: `ssh -i ~/.ssh/id_pi pi@192.168.2.24`
+  - Connect: `ssh -i ~/.ssh/id_pi pi@10.173.252.80`
 - **Passwordless sudo** for the `pi` user via `/etc/sudoers.d/010_pi-nopasswd` containing `pi ALL=(ALL) NOPASSWD:ALL`.
 
 ## What got installed on the Pi
@@ -87,7 +87,7 @@ Living record of the Raspberry Pi deployment for this project. Updated as the de
 ## Cloudflare Tunnel
 
 - **Mode:** *quick tunnel* (no domain needed). cloudflared runs `tunnel --url http://localhost:8000` and Cloudflare assigns a random `*.trycloudflare.com` subdomain. URL changes every time `cloudflared` restarts; the systemd service is configured to auto-restart and stay up.
-- **Public URL (current):** `https://foreign-junction-unavailable-enclosed.trycloudflare.com`
+- **Public URL (current):** `https://hitting-commander-aqua-bureau.trycloudflare.com`
   *(if cloudflared restarts you'll get a new URL — read it from `/var/log/cloudflared.log`)*
 - **systemd:** `/etc/systemd/system/cloudflared.service`, runs as `pi`, log at `/var/log/cloudflared.log`.
 - **Architecture note:** since the Pi userspace is `armhf`, we install `cloudflared-linux-armhf.deb`, NOT `cloudflared-linux-arm64.deb` (arm64 won't run on a 32-bit userspace).
@@ -248,7 +248,7 @@ numpy<2;     platform_machine=="armv7l"
 
 ```bash
 # SSH in (from the laptop)
-ssh -i ~/.ssh/id_pi pi@192.168.2.24
+ssh -i ~/.ssh/id_pi pi@10.173.252.80
 
 # Container status + logs
 cd ~/landslide-warning
@@ -285,7 +285,7 @@ sudo systemctl restart landslide-api landslide-mqtt
 
 When the Pi has to be returned to the senior, run:
 ```bash
-ssh -i ~/.ssh/id_pi pi@192.168.2.24 "bash ~/landslide-warning/scripts/teardown-pi.sh"
+ssh -i ~/.ssh/id_pi pi@10.173.252.80 "bash ~/landslide-warning/scripts/teardown-pi.sh"
 ```
 (Script details in `scripts/teardown-pi.sh`. Will be added to the repo as part of this deployment.)
 
@@ -313,7 +313,7 @@ What teardown does **not** automatically clean up (manual steps):
 
 ## E2E smoke test — last passing run
 
-**2026-04-30** (after restarting the dead 24h+ tunnel):
+**2026-05-01** (after IP change to .80 + tunnel URL recovery):
 ```
 GET  /stations               → [{"station_id":"station_01"}]
 GET  /predict?station_id=... → {"risk_level":"high", "rainfall":118.7, ...}  (simulator was in storm phase)

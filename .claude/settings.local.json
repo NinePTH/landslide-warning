@@ -6,7 +6,13 @@
       "Bash(xargs cat:*)",
       "Bash(npx:*)",
       "Bash(npm install:*)",
-      "Bash(grep -r \"os\\\\.getenv\\\\|os\\\\.environ\" /d/landslide-warning --include=*.py)"
+      "Bash(grep -r \"os\\\\.getenv\\\\|os\\\\.environ\" /d/landslide-warning --include=*.py)",
+      "Bash(ssh *)",
+      "Bash(curl *)",
+      "Bash(npm run *)",
+      "Bash(git fetch *)",
+      "Bash(git checkout *)",
+      "Bash(python -m py_compile mqtt_subscriber.py routers/alert.py ml/predict.py)"
     ]
   }
 }
