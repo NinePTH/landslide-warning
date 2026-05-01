@@ -211,13 +211,13 @@ export default function DashboardPage() {
               </p>
               <div className="mt-auto pt-5 border-t hairline">
                 <p className="font-mono text-[10px] tracking-[0.2em] uppercase text-[var(--ink-400)]">
-                  Threshold
+                  Model Accuracy
                 </p>
                 <p className="ticker font-display text-[28px] text-[var(--ink-100)] leading-tight mt-1">
-                  ≥ 80<span className="text-[14px] text-[var(--ink-400)] ml-1">% RH</span>
+                  99.7<span className="text-[14px] text-[var(--ink-400)] ml-1">%</span>
                 </p>
                 <p className="text-[11px] text-[var(--ink-400)] mt-1 leading-snug">
-                  Humidity rule layer elevates risk one level when crossed.
+                  Random Forest · 5 features · 4 risk classes
                 </p>
               </div>
             </aside>
